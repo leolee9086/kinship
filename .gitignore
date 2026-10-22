@@ -1,0 +1,41 @@
+# Dependencies and generated output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.pnpm-store/
+
+# Local environment / credentials
+.env
+.env.*
+!.env.example
+.npmrc.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Temporary experiments, browser evidence, and work notes
+.tmp/
+.playwright-mcp/
+/probe.mjs
+/patch.py
+/进度日志.md
+*.log
+
+# Local genealogy exports / databases (not the checked-in demo fixture)
+*.db
+*.sqlite
+*.sqlite3
+*.gramps
+*.gpkg
+*.ged
+*.gedcom
+/backups/
+/exports/
+
+# Editor / OS state
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
