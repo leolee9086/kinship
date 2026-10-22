@@ -65,7 +65,7 @@ it("reads navigation from its reference closure instead of scanning the concept 
   vi.spyOn(IDBObjectStore.prototype, "getAll").mockImplementation(function (this: IDBObjectStore, ...args: Parameters<typeof original>) {
     calls.push(this.name); return original.apply(this, args);
   });
-  await client.call("apply", { operations: [{ type: "viewState.replace", expectedVersion: base.viewState.version, data: { ...base.viewState.data, focusId: null } }] });
+  await client.call("apply", { operations: [{ type: "viewState.updateFields", expectedVersion: base.viewState.version, fields: { focusId: null } }] });
   expect(calls).not.toContain(STORES.concepts); expect(calls).not.toContain(STORES.identities);
 });
 it("checks multipart bytes, replays media uploads, and rejects binary corruption", async () => {

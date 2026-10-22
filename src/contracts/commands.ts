@@ -4,16 +4,13 @@ import { ConceptSchema } from "./concept";
 import { PresentationSchema, ViewStateSchema } from "./presentation";
 import { MediaInfoSchema } from "./media";
 import { strictObject, UUIDSchema, VersionSchema } from "./primitives";
+import { conceptOperations } from "./conceptOperations";
+import { settingsOperations } from "./settingsOperations";
 
-const operation = <T extends string>(name: T) => Type.Literal(name);
 export const OperationSchema = Type.Union([
-  strictObject({ type: operation("concept.create"), concept: ConceptSchema }),
-  strictObject({ type: operation("concept.replace"), concept: ConceptSchema, expectedVersion: VersionSchema }),
-  strictObject({ type: operation("concept.deleteUnreferenced"), id: UUIDSchema, expectedVersion: VersionSchema }),
-  strictObject({ type: operation("presentation.replace"), data: PresentationSchema, expectedVersion: VersionSchema }),
-  strictObject({ type: operation("viewState.replace"), data: ViewStateSchema, expectedVersion: VersionSchema }),
-  strictObject({ type: operation("media.publish"), data: MediaInfoSchema }),
-  strictObject({ type: operation("media.remove"), id: UUIDSchema, expectedVersion: VersionSchema }),
+  ...conceptOperations, ...settingsOperations,
+  strictObject({ type: Type.Literal("media.publish"), data: MediaInfoSchema }),
+  strictObject({ type: Type.Literal("media.remove"), id: UUIDSchema, expectedVersion: VersionSchema }),
 ]);
 export const ApplySchema = strictObject({ operations: Type.Array(OperationSchema, { minItems: 1, maxItems: 128 }) });
 export type Operation = Static<typeof OperationSchema>;

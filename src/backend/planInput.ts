@@ -2,6 +2,7 @@
 import type { Apply, ConceptRecord } from "../contracts/commands";
 import { combineSettings } from "../domain/presentationState";
 import type { PlanInput } from "./commandPlan";
+import { planSettingsBatch } from "./planSettings";
 import { presentationIds, readConceptClosure } from "./references";
 import { STORES as S, type ActorViewState, type SharedPresentation, type WorkspaceState, type IdentityRecord } from "./workspaceDb";
 
@@ -16,13 +17,14 @@ export function readPlanInput(tx: IDBTransaction, state: WorkspaceState, input: 
       const result: PlanInput = { concepts: [], identities: [], presentation, viewState };
       let remaining = 2;
       const complete = () => { if (--remaining === 0) done(result); };
-      if (input.operations.some(op => op.type.startsWith("concept."))) {
+      if (input.operations.some(op => op.type.startsWith("concept.") || op.type.startsWith("relation."))) {
         const concepts = tx.objectStore(S.concepts).getAll(), identities = tx.objectStore(S.identities).getAll();
         concepts.onsuccess = () => { result.concepts = concepts.result as ConceptRecord[]; complete(); };
         identities.onsuccess = () => { result.identities = identities.result as IdentityRecord[]; complete(); };
       } else {
-        const nextPresentation = input.operations.find(op => op.type === "presentation.replace")?.data ?? presentation.data;
-        const nextView = input.operations.find(op => op.type === "viewState.replace")?.data ?? viewState.data;
+        const definitions = planSettingsBatch(input.operations, presentation, viewState);
+        const nextPresentation = definitions.presentation?.data ?? presentation.data;
+        const nextView = definitions.viewState?.data ?? viewState.data;
         const settings = combineSettings(nextPresentation, nextView), roots = presentationIds(settings);
         if (settings.focusId) roots.add(settings.focusId);
         settings.expandedRelations.forEach(id => roots.add(id));

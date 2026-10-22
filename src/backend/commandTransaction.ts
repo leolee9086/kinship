@@ -4,7 +4,8 @@ import { parse } from "../contracts/validate";
 import type { Role } from "../contracts/rpc";
 import { fail, RpcError } from "../contracts/errors";
 import { newId, type StoredMedia } from "../domain/concepts";
-import { planCommand, checkVersion, type PlanInput } from "./commandPlan";
+import { planCommand, type PlanInput } from "./commandPlan";
+import { checkVersion } from "./versions";
 import { readPlanInput } from "./planInput";
 import { STORES as S, WRITE_STORES, type HistoryEntry, type IdentityRecord,
   type SavedCommand, type WorkspaceState } from "./workspaceDb";
@@ -21,7 +22,7 @@ export function executeCommand(db: IDBDatabase, input: CommandExecution): Promis
       try {
         const state = stateRequest.result as WorkspaceState;
         if (!state || state.workspaceId !== input.workspaceId) fail("NOT_FOUND", "工作区不存在");
-        if (input.role === "guest" && input.params.operations.some(op => op.type !== "viewState.replace")) fail("FORBIDDEN", "当前空间角色不能编辑共享内容");
+        if (input.role === "guest" && input.params.operations.some(op => op.type !== "viewState.updateFields")) fail("FORBIDDEN", "当前空间角色不能编辑共享内容");
         const replay = tx.objectStore(S.commands).get([state.actorId, input.commandId]);
         replay.onsuccess = () => {
           try {
@@ -99,7 +100,7 @@ function publishPlan(tx: IDBTransaction, state: WorkspaceState, input: CommandEx
   }
   if (changes.presentation) tx.objectStore(S.presentation).put({ ...changes.presentation, id: "shared" });
   if (changes.viewState) tx.objectStore(S.viewState).put({ ...changes.viewState, id: state.actorId });
-  const shared = input.params.operations.some(op => op.type !== "viewState.replace");
+  const shared = input.params.operations.some(op => op.type !== "viewState.updateFields");
   const revision = state.revision + (shared ? 1 : 0);
   const commit = parse(CommitSchema, { commandId: input.commandId, actorId: state.actorId, revision,
     eventId: newId(), occurredAt: new Date().toISOString(), replayed: false, changes }, "INTERNAL_ERROR");

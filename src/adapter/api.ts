@@ -1,15 +1,18 @@
-/** 前端数据门面：便捷方法编译成有类型、带版本的原子命令，存储对象永不交给界面。 */
-import type { Apply, Commit, Operation } from "../contracts/commands";
+/** 前端数据门面：编辑草稿编译成带资源版本的字段命令，界面不接触存储。 */
+import type { Apply, Commit, Operation, ViewStateRecord } from "../contracts/commands";
 import { fail } from "../contracts/errors";
-import { newId, type ConceptMutation, type ConceptSnapshot, type GraphSettings, type MediaInfo } from "../domain/concepts";
-import { splitSettings } from "../domain/presentationState";
-import { canonicalJSON } from "../format/json";
+import { newId, type Concept, type ConceptMutation, type ConceptSnapshot, type GraphSettings, type MediaInfo } from "../domain/concepts";
 import { sha256 } from "../format/digest";
 import { RpcClient, type CallOptions } from "./rpcClient";
 import { WorkspaceReplica } from "./replica";
+import { conceptCommands } from "./conceptCommands";
+import { settingsCommands } from "./settingsCommands";
 import type { Dispatch } from "./transport";
 
-export interface MutationOptions extends CallOptions { expectedVersions?: Record<string, number | null> }
+export interface MutationOptions extends CallOptions {
+  expectedVersions?: Record<string, number | null>;
+  initialConcepts?: Record<string, Concept>;
+}
 export interface DataAdapter {
   load(): Promise<ConceptSnapshot>;
   execute(command: Apply, options?: CallOptions): Promise<Commit>;
@@ -36,29 +39,29 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
   return {
     load, execute,
     mutate: async (change, options) => {
-      const current = (await ready()).snapshot, operations: Operation[] = [];
+      const current = (await ready()).snapshot, operations: Operation[] = [], records = new Map(current.concepts.map(c => [c.id, c]));
       for (const concept of change.put ?? []) {
         const version = options?.expectedVersions && concept.id in options.expectedVersions
           ? options.expectedVersions[concept.id] : current.conceptVersions[concept.id] ?? null;
-        operations.push(version === null ? { type: "concept.create", concept } : { type: "concept.replace", concept, expectedVersion: version });
+        const initial = version === null ? undefined : options?.initialConcepts?.[concept.id] ?? records.get(concept.id);
+        if (version !== null && !initial) fail("NOT_FOUND", "待编辑概念不在当前快照中", { id: concept.id });
+        operations.push(...conceptCommands(concept, initial, version));
       }
       for (const id of change.remove ?? []) {
-        const version = options?.expectedVersions?.[id] ?? current.conceptVersions[id];
+        const version = options?.expectedVersions && id in options.expectedVersions ? options.expectedVersions[id] : current.conceptVersions[id];
         if (version === undefined) fail("NOT_FOUND", "待删除的概念不在当前快照中", { id });
+        if (version === null) fail("INVALID_REQUEST", "删除需要已有资源版本", { id });
         operations.push({ type: "concept.deleteUnreferenced", id, expectedVersion: version });
       }
-      const removed = new Set(change.remove ?? []), parts = splitSettings(current.settings);
-      if ((current.settings.focusId && removed.has(current.settings.focusId)) || current.settings.expandedRelations.some(id => removed.has(id))) {
-        operations.push({ type: "viewState.replace", expectedVersion: current.viewStateVersion, data: { ...parts.viewState,
-          focusId: current.settings.focusId && removed.has(current.settings.focusId) ? null : current.settings.focusId,
-          expandedRelations: current.settings.expandedRelations.filter(id => !removed.has(id)) } });
-      }
-      await execute({ operations }, options); return replica!.snapshot;
+      const removed = new Set(change.remove ?? []), fields: Partial<Pick<ViewStateRecord["data"], "focusId" | "expandedRelations">> = {};
+      if (current.settings.focusId && removed.has(current.settings.focusId)) fields.focusId = null;
+      if (current.settings.expandedRelations.some(id => removed.has(id))) fields.expandedRelations = current.settings.expandedRelations.filter(id => !removed.has(id));
+      if (Object.keys(fields).length) operations.push({ type: "viewState.updateFields", expectedVersion: current.viewStateVersion, fields });
+      if (operations.length) await execute({ operations }, options);
+      return replica!.snapshot;
     },
     saveSettings: async settings => {
-      const current = (await ready()).snapshot, next = splitSettings(settings), previous = splitSettings(current.settings), operations: Operation[] = [];
-      if (canonicalJSON(next.presentation) !== canonicalJSON(previous.presentation)) operations.push({ type: "presentation.replace", data: next.presentation, expectedVersion: current.presentationVersion });
-      if (canonicalJSON(next.viewState) !== canonicalJSON(previous.viewState)) operations.push({ type: "viewState.replace", data: next.viewState, expectedVersion: current.viewStateVersion });
+      const operations = settingsCommands((await ready()).snapshot, settings);
       if (operations.length) await execute({ operations }); return replica!.snapshot.settings;
     },
     upload: async (file, options) => {
@@ -74,11 +77,8 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
     removeMedia: async id => {
       const current = (await ready()).snapshot, info = await client.call("mediaInfo", { id });
       const operations: Operation[] = [{ type: "media.remove", id, expectedVersion: info.version }];
-      if (current.settings.background.mediaId === id) {
-        const parts = splitSettings(current.settings);
-        operations.push({ type: "viewState.replace", expectedVersion: current.viewStateVersion,
-          data: { ...parts.viewState, background: { ...parts.viewState.background, mediaId: null } } });
-      }
+      if (current.settings.background.mediaId === id) operations.push({ type: "viewState.updateFields", expectedVersion: current.viewStateVersion,
+        fields: { background: { ...current.settings.background, mediaId: null } } });
       await execute({ operations }); return replica!.snapshot.settings;
     },
   };

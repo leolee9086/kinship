@@ -12,8 +12,8 @@ export function ConceptEditor({ index, initial, mode, focus, busy, onSave, onClo
   const [label, setLabel] = useState(initial?.label ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [aliases, setAliases] = useState(initial?.aliases?.join("，") ?? "");
-  const [typeId, setType] = useState(initial?.types[0] ?? (mode === "type" ? C.type : mode === "role" ? C.role : mode === "relation" ? C.association : C.person));
-  const [broader, setBroader] = useState(initial?.broader?.[0] ?? (mode === "type" ? C.concept : mode === "role" ? C.participant : ""));
+  const [typeId, setType] = useState(initial?.types[0] ?? (mode === "type" ? C.type : mode === "role" ? C.role : mode === "relation" ? C.relation : C.concept));
+  const [broader, setBroader] = useState(initial?.broader?.[0] ?? (mode === "type" ? C.concept : ""));
   const [color, setColor] = useState(initial?.schema?.color ?? "#527fbd");
   const [properties, setProperties] = useState(JSON.stringify(initial?.properties ?? {}, null, 2));
   const [participants, setParticipants] = useState<Participation[]>(() => initial?.participants

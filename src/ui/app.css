@@ -44,11 +44,10 @@ h1, h2, h3, h4, p { margin-top: 0; }
 .library-tabs button.active { background: white; color: #426b56; box-shadow: 0 1px 4px #34492d0c; }
 .library-results { overflow-y: auto; flex: 1; min-height: 0; padding: 12px 10px; scrollbar-width: thin; }
 .result-count { color: #a4aea3; font-size: 9px; padding: 0 12px; letter-spacing: .04em; }
-.concept-row { width: 100%; display: flex; align-items: center; gap: 9px; text-align: left; padding: 10px; border: 1px solid transparent; background: transparent; margin: 2px 0; }
+.concept-row { width: 100%; display: flex; align-items: center; gap: 9px; text-align: left; padding: 10px; border: 1px solid transparent; background: transparent; margin: 0; }
 .concept-row.selected { background: #eaf1e5; border-color: #dce8d4; }
 .concept-row > span:nth-child(2) { flex: 1; min-width: 0; }
 .concept-row strong { display: block; font-size: 11px; font-weight: 500; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.concept-row { height: 54px; }
 .limit-note { color: #9a8555; }
 .concept-row small { display: block; font-size: 9px; color: #99a598; margin-top: 4px; }
 .concept-icon { color: #83a287; font-size: 15px; background: #eff3ec; width: 26px; height: 28px; border-radius: 7px; display: grid; place-items: center; flex-shrink: 0; }

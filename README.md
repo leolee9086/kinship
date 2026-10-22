@@ -27,7 +27,9 @@ UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、�
 
 数据库是主事实来源。当前站点使用 `kinship-workspaces` IndexedDB v1，分别保存概念、共享展示定义、个人视图状态、媒体、身份墓碑、命令结果和事件。首次创建时生成虚构演示概念与关系，随后以 UUID 持久保存。开发阶段不保留旧结构兼容、双写或隐式导入；不读取、不迁移、不删除 `kinship`、`kinship-concepts`、`kinship-workspace` 等旧开发库。不同域名、端口或浏览器配置使用各自的站点存储。
 
-当前 bootstrap 仍读取完整概念快照，业务图编辑仍执行全图约束检查；字段/参与槽命令、分页目录、局部投影、生命周期与历史回滚界面、文件导入导出、正文编辑器、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件将作为显式导入导出目标，普通导入保留 UUID；现有展示模板编解码不代表完整图谱包已经实现。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
+概念编辑按字段差异提交，参与槽按 UUID 添加、修改、移动和移除；视图/视角定义与个人状态也有独立操作，不提供整对象 replace 入口。同一事务内可组合多个字段与槽位变更，统一检查原始资源版本，每个资源只递增一次。相关入口：[概念与槽位操作](./src/contracts/conceptOperations.ts)、[设置操作](./src/contracts/settingsOperations.ts)、[最终图校验](./src/backend/commandPlan.ts)。
+
+当前 bootstrap 仍读取完整概念快照，业务图编辑仍执行全图约束检查；分页目录、局部投影、生命周期与历史回滚界面、文件导入导出、正文编辑器、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件将作为显式导入导出目标，普通导入保留 UUID；现有展示模板编解码不代表完整图谱包已经实现。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
 
 项目设计和开发记录在思源维护：[编辑器、语义内链与原子 RPC 方案](siyuan://blocks/20261023012229-e9zn1zp)、[RPC 契约与事务协议](siyuan://blocks/20261023032258-aa34xhy)、[JSON/Kramdown 与局部图谱包设计](siyuan://blocks/20261023025308-dv16evk)、[开发进度和验收记录](siyuan://blocks/20261023011959-53mrjex)。
 

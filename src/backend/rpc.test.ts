@@ -65,9 +65,9 @@ it("checks resource versions rather than the whole workspace and rejects stale e
   const first = session(), second = session(first.name); await first.client.call("bootstrap", {}); await second.client.call("bootstrap", {});
   const one = concept("甲"), two = concept("乙");
   await first.client.call("apply", { operations: [one, two].map(item => ({ type: "concept.create", concept: item })) });
-  await first.client.call("apply", { operations: [{ type: "concept.replace", concept: { ...one, label: "甲新" }, expectedVersion: 1 }] });
-  await second.client.call("apply", { operations: [{ type: "concept.replace", concept: { ...two, label: "乙新" }, expectedVersion: 1 }] });
-  await expect(second.client.call("apply", { operations: [{ type: "concept.replace", concept: { ...one, label: "过时覆盖" }, expectedVersion: 1 }] }))
+  await first.client.call("apply", { operations: [{ type: "concept.updateFields", id: one.id, fields: { label: "甲新" }, expectedVersion: 1 }] });
+  await second.client.call("apply", { operations: [{ type: "concept.updateFields", id: two.id, fields: { label: "乙新" }, expectedVersion: 1 }] });
+  await expect(second.client.call("apply", { operations: [{ type: "concept.updateFields", id: one.id, fields: { label: "过时覆盖" }, expectedVersion: 1 }] }))
     .rejects.toMatchObject({ fault: { code: "VERSION_CONFLICT", details: { id: one.id, expectedVersion: 1, actualVersion: 2 } } });
   expect((await first.client.call("bootstrap", {})).revision).toBe(3);
 });
@@ -103,14 +103,13 @@ it("rolls back the entire multi-operation plan on a dangling relation", async ()
 it("stores guest navigation separately, denies shared edits and omits private focus from shared events", async () => {
   const owner = session(), guest = session(owner.name, "guest");
   const base = await owner.client.call("bootstrap", {}); await guest.client.call("bootstrap", {});
-  const view = { ...base.viewState.data, focusId: null };
-  const navigation = await guest.client.call("apply", { operations: [{ type: "viewState.replace", data: view, expectedVersion: base.viewState.version }] });
+  const navigation = await guest.client.call("apply", { operations: [{ type: "viewState.updateFields", fields: { focusId: null }, expectedVersion: base.viewState.version }] });
   expect(navigation.revision).toBe(0);
   expect((await owner.client.call("events", { after: 0, limit: 10 })).events).toHaveLength(0);
   await expect(guest.client.call("apply", { operations: [{ type: "concept.create", concept: concept() }] })).rejects.toMatchObject({ fault: { code: "FORBIDDEN" } });
   const item = concept();
   await owner.client.call("apply", { operations: [{ type: "concept.create", concept: item },
-    { type: "viewState.replace", data: { ...view, focusId: item.id }, expectedVersion: navigation.changes.viewState!.version }] });
+    { type: "viewState.updateFields", fields: { focusId: item.id }, expectedVersion: navigation.changes.viewState!.version }] });
   const page = await owner.client.call("events", { after: 0, limit: 10 }); expect(page.events).toHaveLength(1);
   expect(page.events[0].changes.viewState).toBeUndefined();
   expect(splitSettings((await import("../templates/starter")).starterSettings()).viewState.focusId).toBe(null);

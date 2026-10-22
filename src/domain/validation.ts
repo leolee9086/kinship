@@ -27,7 +27,7 @@ export function validateConcepts(values: unknown): Concept[] {
       check(value.properties);
     }
     if (value.participants !== undefined) {
-      assert(Array.isArray(value.participants) && value.participants.length > 0, "关系至少需要一个参与槽");
+      assert(Array.isArray(value.participants) && value.participants.length >= 2, "关系至少需要两个参与槽");
       for (const p of value.participants) {
         object(p); uuid(p.id); uuid(p.role); uuid(p.concept);
         assert(!slots.has(p.id), "参与槽 UUID 重复"); slots.add(p.id);

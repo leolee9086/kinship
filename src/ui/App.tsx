@@ -16,6 +16,7 @@ import { ConceptEditor, type EditorMode } from "./ConceptEditor";
 import { ViewSettings } from "./ViewSettings";
 import { ConceptLibraryList } from "./ConceptLibraryList";
 import { useConceptGraph } from "./useConceptGraph";
+import { useWorkspacePanels } from "./useWorkspacePanels";
 import "./app.css";
 
 type GraphState = ReturnType<typeof useConceptGraph>;
@@ -31,10 +32,9 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
   const index = useMemo(() => new ConceptIndex(snapshot.concepts), [snapshot.concepts]);
   const focus = settings.focusId;
   const [inspected, setInspected] = useState<string | null>(focus);
-  const [panel, setPanel] = useState<"details" | "settings" | "perspective" | "related" | null>(null);
+  const { panel, library, setPanel, setLibrary } = useWorkspacePanels();
   const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
   useEffect(() => setRevealed(new Set()), [focus, settings.perspective.presetId]);
-  const [library, setLibrary] = useState(false);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"instances" | "types" | "roles">("instances");
   const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
@@ -112,12 +112,13 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
     ? settings.expandedRelations.filter(r => r !== id) : [...settings.expandedRelations, id] });
   const saveConcept = async (concept: Concept) => {
     // 使用打开编辑器时的版本，保存期间刷新状态也不能悄悄覆盖他人的修改。
-    await graph.mutate({ put: [concept] }, { expectedVersions: { [concept.id]: editor?.expectedVersion ?? null } });
+    await graph.mutate({ put: [concept] }, { expectedVersions: { [concept.id]: editor?.expectedVersion ?? null },
+      ...(editor?.initial ? { initialConcepts: { [concept.id]: editor.initial } } : {}) });
     setInspected(concept.id); setEditor(null);
   };
   const deleteSelected = async () => {
     if (!selected) return;
-    try { await graph.mutate({ remove: [selected.id] }); setInspected(null); } catch { /* 数据层已经显示具体的引用约束错误。 */ }
+    try { await graph.mutate({ remove: [selected.id] }); setInspected(null); setPanel(null); } catch { /* 数据层已经显示具体的引用约束错误。 */ }
   };
   const onViewport = useCallback((width: number, height: number) => setViewport({ width, height }), []);
   const relationCount = index.concepts.filter(c => !!c.participants).length;
