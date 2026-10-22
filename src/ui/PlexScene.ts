@@ -2,7 +2,7 @@
 import { Application, Container, Graphics, Text, TextStyle } from "pixi.js";
 import type { PixiGraphProps, PixiNode, Camera } from "./PixiGraph";
 import type { Curve } from "./edges";
-import { routeCurve, RELATION_COLORS, RELATION_LABELS, cubicPoint, curveInViewport, edgeOpacity } from "./edges";
+import { routeCurve, cubicPoint, curveInViewport, edgeOpacity } from "./edges";
 import { UNIT_PX, GRAPH_FONT, NAME_PX, DATE_PX, gate, BoxIndex, type Box, type PortName } from "./graphGeometry";
 import { attachGraphInput } from "./graphInput";
 
@@ -60,12 +60,12 @@ export class PlexScene {
     this.app.ticker.add(this.tick);
     const canvas = this.app.canvas;
     canvas.tabIndex = 0;
-    canvas.setAttribute("aria-label", "亲属关系图。方向键聚焦亲属，Enter 编辑，滚轮缩放，拖拽平移。");
+    canvas.setAttribute("aria-label", "概念关系图。方向键导航，Enter 编辑；点击关系线查看关系概念，滚轮缩放，拖拽平移。");
     this.detachInput = attachGraphInput(canvas, {
       camera: () => this.camera,
       applyCamera: cam => this.publishCamera(cam),
       pick: (x, y) => this.pick(x, y),
-      select: id => this.props.onNodeClick(id),
+      select: id => id.startsWith("edge/") ? this.props.onRelationClick(id.slice(5)) : this.props.onNodeClick(id),
       overview: (x, y) => this.pickOverview(x, y),
     });
     this.observer = new ResizeObserver(() => this.resize());
@@ -94,8 +94,12 @@ export class PlexScene {
     if (this.disposed) return;
     const width = this.host.clientWidth, height = this.host.clientHeight;
     if (!width || !height) return; // ResizeObserver 会在宿主真正可见时重跑。
+    const dx = (width - this.width) / 2, dy = (height - this.height) * 0.44;
+    this.camera = { ...this.camera, x: this.camera.x + dx, y: this.camera.y + dy };
+    this.targetCamera = { ...this.targetCamera, x: this.targetCamera.x + dx, y: this.targetCamera.y + dy };
     this.width = width; this.height = height;
     this.app.renderer.resize(width, height);
+    this.props.onCameraChange(this.camera);
     this.props.onViewportChange(width, height);
     this.overview.position.set(width - this.mapWidth - 14, height - this.mapHeight - 14);
     this.drawOverview();
@@ -119,21 +123,21 @@ export class PlexScene {
         this.nodes.set(n.id, v);
       }
       v.data = n; v.dying = false;
-      v.targetAlpha = n.depth <= 1 ? 1 : 0.58;
+      v.targetAlpha = (n.depth <= 1 ? 1 : 0.58) * n.emphasis;
     }
     for (const [id, v] of this.nodes) if (!alive.has(id)) { v.dying = true; v.targetAlpha = 0; }
     const edgeIds = new Set<string>();
     this.usedPorts.clear();
     for (const c of this.props.curves) {
       edgeIds.add(c.id);
-      const targetAlpha = edgeOpacity(c.hop);
+      const targetAlpha = edgeOpacity(c.hop) * c.emphasis;
       const v = this.edges.get(c.id);
       if (v) { v.data = c; v.targetAlpha = targetAlpha; }
       else this.edges.set(c.id, { data: c, alpha: 0, targetAlpha });
       for (const [id, port] of [[c.from, c.fromPort], [c.to, c.toPort]] as const) {
         let ports = this.usedPorts.get(id);
         if (!ports) { ports = new Map(); this.usedPorts.set(id, ports); }
-        ports.set(port, RELATION_COLORS[c.kind]);
+        ports.set(port, c.color);
       }
     }
     for (const [id, v] of this.edges) if (!edgeIds.has(id)) v.targetAlpha = 0;
@@ -173,7 +177,7 @@ export class PlexScene {
     const dates = this.props.level === "near" && !!n.sub;
     const nameVisible = this.props.level !== "far" || n.isFocus;
     const portColors = this.usedPorts.get(n.id);
-    const signature = JSON.stringify([n.width, n.height, n.gender, n.isFocus, n.label, n.sub,
+    const signature = JSON.stringify([n.width, n.height, n.accent, n.isRelation, n.isFocus, n.label, n.sub,
       dates, nameVisible, [...(portColors ?? [])]]);
     if (d.signature !== signature) {
       d.signature = signature;
@@ -184,8 +188,8 @@ export class PlexScene {
         .stroke({ width: 2, color: 0x6b91cc, alpha: 0.25 });
       g.roundRect(-hw, -hh, n.width, n.height, 8).fill({ color: n.isFocus ? 0xf0f5ff : 0xffffff, alpha: 0.97 })
         .stroke({ width: n.isFocus ? 1.7 : 0.8, color: n.isFocus ? 0x527fbd : 0xd7dfe9 });
-      const dotColor = n.gender === "M" ? 0x86a9d2 : n.gender === "F" ? 0xd9a1b7 : 0xa6afbc;
-      g.circle(-hw + 11, dates ? -7 : 0, 3.4).fill(dotColor);
+      if (n.isRelation) g.rect(-hw + 7, (dates ? -7 : 0) - 3.5, 7, 7).fill(n.accent);
+      else g.circle(-hw + 11, dates ? -7 : 0, 3.4).fill(n.accent);
       for (const port of PORTS) {
         if (!n.isFocus && !portColors?.has(port)) continue;
         const p = gate({ x: 0, y: 0, width: n.width, height: n.height }, port);
@@ -266,15 +270,15 @@ export class PlexScene {
       const c = routeCurve({ x: a.x / UNIT_PX, y: a.y / UNIT_PX, width: a.data.width, height: a.data.height },
         { x: b.x / UNIT_PX, y: b.y / UNIT_PX, width: b.data.width, height: b.data.height }, v.data, this.props.curveStyle);
       if (!curveInViewport(c, viewport, 12 / this.camera.zoom / UNIT_PX)) continue;
-      const appearance = (n: NodeVisual) => Math.min(1, n.alpha / (n.data.depth <= 1 ? 1 : 0.58));
+      const appearance = (n: NodeVisual) => Math.min(1, n.alpha / Math.max(0.0001, (n.data.depth <= 1 ? 1 : 0.58) * n.data.emphasis));
       // 姓名的远景透明度不能再乘在线上；线的静态透明度只由真实跳数决定。
       const alpha = v.alpha * Math.min(appearance(a), appearance(b));
-      const color = RELATION_COLORS[c.kind];
+      const color = c.color;
       this.lines.moveTo(c.x1 * UNIT_PX, c.y1 * UNIT_PX);
       if (this.props.curveStyle.type === "straight") this.lines.lineTo(c.x2 * UNIT_PX, c.y2 * UNIT_PX);
       else this.lines.bezierCurveTo(c.c1x * UNIT_PX, c.c1y * UNIT_PX, c.c2x * UNIT_PX, c.c2y * UNIT_PX,
         c.x2 * UNIT_PX, c.y2 * UNIT_PX);
-      this.lines.stroke({ color, alpha, width: c.depth === 1 ? 1.65 : 1.1 });
+      this.lines.stroke({ color, alpha, width: c.relationId === this.props.selectedRelation ? 3.5 : c.hop === 1 ? 1.65 : 1.1 });
       this.renderedEdges.push({ ...c, alpha, color });
     }
     this.drawRelationLabels();
@@ -285,7 +289,7 @@ export class PlexScene {
 
   private drawRelationLabels() {
     const alive = new Set<string>();
-    if (this.props.showRelationLabels) {
+    if (this.renderedEdges.length) {
       const occupied = new BoxIndex(64); // 屏幕像素，标签的字号不随镜头缩成蚂蚁。
       for (const v of this.nodes.values()) {
         if (!v.display) continue;
@@ -293,33 +297,42 @@ export class PlexScene {
         const hw = v.data.width * this.camera.zoom / 2 + 5, hh = v.data.height * this.camera.zoom / 2 + 4;
         occupied.add({ left: x - hw, right: x + hw, top: y - hh, bottom: y + hh });
       }
-      for (const c of [...this.renderedEdges].sort((a, b) => a.hop - b.hop)) {
-        if (c.alpha < 0.02) continue;
-        const text = RELATION_LABELS[c.kind];
-        const width = text.length * 11 + 12;
-        let anchor: { x: number; y: number } | null = null;
-        for (const t of [0.5, 0.38, 0.62, 0.26, 0.74, 0.14, 0.86]) {
-          const p = cubicPoint(c, t);
-          const x = p.x * UNIT_PX * this.camera.zoom + this.camera.x;
-          const y = p.y * UNIT_PX * this.camera.zoom + this.camera.y;
-          const box = { left: x - width / 2, right: x + width / 2, top: y - 10, bottom: y + 10 };
-          if (box.left < 4 || box.right > this.width - 4 || box.top < 4 || box.bottom > this.height - 4) continue;
-          if (occupied.query(box).length) continue;
-          occupied.add(box); anchor = p; break;
+      for (const c of [...this.renderedEdges].sort((a, b) => b.emphasis - a.emphasis || a.hop - b.hop)) {
+        if (c.alpha < 0.08) continue;
+        const annotations = [
+          { suffix: "from", text: c.fromLabel, samples: [0.14, 0.22, 0.3] },
+          { suffix: "to", text: c.toLabel, samples: [0.86, 0.78, 0.7] },
+          { suffix: "type", text: c.label, samples: [0.5, 0.42, 0.58] },
+        ];
+        for (const annotation of annotations) {
+          const { text } = annotation;
+          // 端点角色始终沿线可读，开关只影响位于曲线中段的关系类型文字。
+          if (!text || (annotation.suffix === "type" && !this.props.showRelationLabels)) continue;
+          const width = text.length * 11 + 12;
+          let anchor: { x: number; y: number } | null = null;
+          for (const t of annotation.samples) {
+            const p = cubicPoint(c, t);
+            const x = p.x * UNIT_PX * this.camera.zoom + this.camera.x;
+            const y = p.y * UNIT_PX * this.camera.zoom + this.camera.y;
+            const box = { left: x - width / 2, right: x + width / 2, top: y - 10, bottom: y + 10 };
+            if (box.left < 4 || box.right > this.width - 4 || box.top < 4 || box.bottom > this.height - 4 || occupied.query(box).length) continue;
+            occupied.add(box); anchor = p; break;
+          }
+          if (!anchor) continue;
+          const id = `${c.id}/${annotation.suffix}/${text}`;
+          alive.add(id);
+          let label = this.relationLabels.get(id);
+          if (!label) {
+            const box = new Container();
+            const background = new Graphics().roundRect(-width / 2, -9, width, 18, 4).fill({ color: 0xf8fafc, alpha: 0.97 });
+            const name = new Text({ text, style: new TextStyle({ fontFamily: GRAPH_FONT, fontSize: 11, fill: c.color }), anchor: { x: 0.5, y: 0.5 } });
+            box.addChild(background, name); this.labelLayer.addChild(box);
+            label = { box, text: name }; this.relationLabels.set(id, label);
+          }
+          label.text.style.fill = c.color;
+          label.box.position.set(anchor.x * UNIT_PX, anchor.y * UNIT_PX);
+          label.box.scale.set(1 / this.camera.zoom); label.box.alpha = c.alpha;
         }
-        if (!anchor) continue; // 没有空位时不把关系文字强压在姓名上，连线本身仍绘制。
-        alive.add(c.id);
-        let label = this.relationLabels.get(c.id);
-        if (!label) {
-          const box = new Container();
-          const background = new Graphics().roundRect(-width / 2, -9, width, 18, 4).fill({ color: 0xf8fafc, alpha: 0.97 });
-          const name = new Text({ text, style: new TextStyle({ fontFamily: GRAPH_FONT, fontSize: 11,
-            fill: RELATION_COLORS[c.kind] }), anchor: { x: 0.5, y: 0.5 } });
-          box.addChild(background, name); this.labelLayer.addChild(box);
-          label = { box, text: name }; this.relationLabels.set(c.id, label);
-        }
-        label.box.position.set(anchor.x * UNIT_PX, anchor.y * UNIT_PX);
-        label.box.scale.set(1 / this.camera.zoom); label.box.alpha = c.alpha;
       }
     }
     for (const [id, label] of this.relationLabels) {
@@ -331,14 +344,30 @@ export class PlexScene {
     const wx = (sx - this.camera.x) / this.camera.zoom, wy = (sy - this.camera.y) / this.camera.zoom;
     let hit: NodeVisual | null = null, distance = Infinity;
     for (const v of this.nodes.values()) {
-      if (v.dying || !v.display || v.alpha < 0.2) continue;
+      // 淡显只降低视觉权重；仍完整响应指针。只有退场或明确不可见的节点退出命中。
+      if (v.dying || !v.display || v.data.emphasis <= 0) continue;
       const pad = 5 / this.camera.zoom;
       if (Math.abs(wx - v.x) <= v.data.width / 2 + pad && Math.abs(wy - v.y) <= v.data.height / 2 + pad) {
         const d = Math.hypot(wx - v.x, wy - v.y);
         if (d < distance) { hit = v; distance = d; }
       }
     }
-    return hit?.data.id ?? null;
+    if (hit) return hit.data.id;
+    let relation: string | null = null, closest = 8 / this.camera.zoom / UNIT_PX;
+    const point = { x: wx / UNIT_PX, y: wy / UNIT_PX };
+    for (const c of this.renderedEdges) {
+      let previous = cubicPoint(c, 0);
+      const samples = Math.max(16, Math.min(100, Math.ceil(Math.hypot(c.x2 - c.x1, c.y2 - c.y1) * 12)));
+      for (let i = 1; i <= samples; i++) {
+        const next = cubicPoint(c, i / samples);
+        const dx = next.x - previous.x, dy = next.y - previous.y;
+        const t = Math.max(0, Math.min(1, ((point.x - previous.x) * dx + (point.y - previous.y) * dy) / (dx * dx + dy * dy || 1)));
+        const d = Math.hypot(point.x - previous.x - t * dx, point.y - previous.y - t * dy);
+        if (d < closest) { closest = d; relation = c.relationId; }
+        previous = next;
+      }
+    }
+    return relation ? `edge/${relation}` : null;
   }
 
   private drawOverview() {
@@ -390,7 +419,7 @@ export class PlexScene {
     return {
       ready: !this.disposed, focus: this.focus, camera: { ...this.camera }, width: this.width, height: this.height,
       animating: this.host.dataset.animating === "true",
-      nodes: [...this.nodes.values()].map(v => ({ id: v.data.id, label: v.data.label, depth: v.data.depth,
+      nodes: [...this.nodes.values()].map(v => ({ id: v.data.id, label: v.data.label, sub: v.data.sub, depth: v.data.depth, emphasis: v.data.emphasis,
         x: v.x, y: v.y, width: v.data.width, height: v.data.height, alpha: v.alpha, dying: v.dying,
         rendered: !!v.display, labelVisible: v.display?.name.visible ?? false,
         screenX: v.x * this.camera.zoom + this.camera.x, screenY: v.y * this.camera.zoom + this.camera.y })),

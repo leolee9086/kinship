@@ -4,23 +4,22 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Application } from "pixi.js";
-import type { NodeId } from "../domain/types";
-import type { Zone } from "./layout";
+import type { ConceptId } from "../domain/concepts";
 import type { Curve, CurveStyle } from "./edges";
 import type { NodeSize } from "./graphGeometry";
 import { PlexScene } from "./PlexScene";
 export { UNIT_PX } from "./graphGeometry";
 
 export interface PixiNode extends NodeSize {
-  id: NodeId;
+  id: ConceptId;
   x: number; y: number;
   label: string;
   sub?: string;
-  gender: string;
+  accent: number;
+  isRelation: boolean;
   isFocus: boolean;
   depth: number;
-  zone: Zone;
-  labelSide: "left" | "right";
+  emphasis: number;
 }
 export type PixiCurve = Curve;
 export interface Camera {
@@ -33,7 +32,9 @@ export interface PixiGraphProps {
   curves: PixiCurve[];
   camera: Camera;
   onCameraChange: (camera: Camera) => void;
-  onNodeClick: (id: NodeId) => void;
+  onNodeClick: (id: ConceptId) => void;
+  onRelationClick: (id: ConceptId) => void;
+  selectedRelation: ConceptId | null;
   onViewportChange: (width: number, height: number) => void;
   curveStyle: CurveStyle;
   showRelationLabels: boolean;
@@ -70,7 +71,7 @@ export function PixiGraph(props: PixiGraphProps) {
       try {
         await app.init({
           width: Math.max(1, host.clientWidth), height: Math.max(1, host.clientHeight),
-          background: 0xf8fafc, antialias: true,
+          backgroundAlpha: 0, antialias: true,
           resolution: Math.min(devicePixelRatio, 2), autoDensity: true, autoStart: false,
         });
         initialized = true;
@@ -97,7 +98,7 @@ export function PixiGraph(props: PixiGraphProps) {
   useEffect(() => { sceneRef.current?.update(props); }, [props]);
 
   return (
-    <div ref={hostRef} className="pixi-host" role="region" aria-label="亲属关系画布">
+    <div ref={hostRef} className="pixi-host" role="region" aria-label="概念关系画布">
       {error && <div className="error" role="alert">画布无法初始化：{error}</div>}
     </div>
   );

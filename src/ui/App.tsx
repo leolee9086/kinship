@@ -1,342 +1,191 @@
-/** React 负责编辑与适配器操作；文字布局、关系路由、Pixi 场景各自独立。 */
-
+/** 通用概念工作台。布局、领域和存储后端各有边界，UI 只调用 DataAdapter。 */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
-import type { DataAdapter } from "../adapter/types";
-import { useGraph } from "./useGraph";
-import { useKeyboard } from "./useKeyboard";
-import {
-  buildIndex,
-  plexLayout,
-  DEFAULT_PLEX,
-} from "./layout";
-import { buildCurves, DEFAULT_CURVE, RELATION_COLORS, RELATION_LABELS } from "./edges";
-import { createTextMeasurer, nodeBox, type NodeLabel } from "./graphGeometry";
-import type { RelationKind } from "./layout";
-import {
-  PixiGraph,
-  UNIT_PX,
-  type Camera,
-  type PixiNode,
-  type PixiCurve,
-} from "./PixiGraph";
-import { displayName, yearOf, type NodeId } from "../domain/types";
+import type { DataAdapter } from "../adapter/api";
+import { C, type Concept, type ConceptSnapshot, type ColorAxis } from "../domain/concepts";
+import { ConceptIndex } from "../domain/conceptIndex";
+import { GRAPH_VIEWS } from "../domain/ontology";
+import { projectGraph, relationColor } from "../domain/projection";
+import { PixiGraph, type Camera, type PixiNode } from "./PixiGraph";
+import { buildCurves, type CurveStyle } from "./edges";
+import { PERSPECTIVES, displayMode, perspectivePreset } from "../domain/perspectives";
+import { PerspectiveControls } from "./PerspectiveControls";
+import { createTextMeasurer, UNIT_PX } from "./graphGeometry";
+import { layoutConcepts } from "./conceptLayout";
+import { Background } from "./Background";
+import { ConceptEditor, type EditorMode } from "./ConceptEditor";
+import { ViewSettings } from "./ViewSettings";
+import { ConceptLibraryList } from "./ConceptLibraryList";
+import { useConceptGraph } from "./useConceptGraph";
+import "./app.css";
 
-/** 按缩放选择 LOD。 */
-function levelFor(zoom: number): "far" | "mid" | "near" {
-  if (zoom < 0.4) return "far";
-  if (zoom < 0.85) return "mid";
-  return "near";
+type GraphState = ReturnType<typeof useConceptGraph>;
+export function App({ adapter }: { adapter: DataAdapter }) {
+  const graph = useConceptGraph(adapter);
+  if (!graph.snapshot) return <main className="loading-screen"><span className="brand-mark">k</span><h1>Kinship</h1>
+    {graph.error ? <p role="alert">{graph.error}</p> : <p>正在打开概念图谱…</p>}</main>;
+  return <Workspace adapter={adapter} graph={graph} snapshot={graph.snapshot} />;
 }
 
-function Inner({ adapter }: { adapter: DataAdapter }) {
-  const g = useGraph(adapter);
+function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: GraphState; snapshot: ConceptSnapshot }) {
+  const settings = snapshot.settings;
+  const index = useMemo(() => new ConceptIndex(snapshot.concepts), [snapshot.concepts]);
+  const focus = settings.focusId;
+  const [inspected, setInspected] = useState<string | null>(focus);
+  const [panel, setPanel] = useState<"details" | "settings" | "perspective" | "related" | null>(null);
+  const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
+  useEffect(() => setRevealed(new Set()), [focus, settings.perspective.presetId]);
+  const [library, setLibrary] = useState(false);
+  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"instances" | "types" | "roles">("instances");
+  const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept } | null>(null);
+  const [help, setHelp] = useState(false);
+  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 0.82 });
+  const [viewport, setViewport] = useState({ width: 800, height: 600 });
+  const curveStyle: CurveStyle = settings.curve;
+  const search = useRef<HTMLInputElement>(null);
+  const history = useRef<string[]>([]);
+  const measureText = useMemo(createTextMeasurer, []);
+  const labels = useMemo(() => new Map(index.concepts.map(c => [c.id, {
+    label: c.label, sub: index.typeLabel(c),
+  }])), [index]);
+  const projection = useMemo(() => focus ? projectGraph(index, focus, settings, 600, revealed) : null,
+    [index, focus, settings.viewId, settings.depth, settings.colorAxis, settings.colorDepth, settings.palette, settings.expandedRelations, settings.regionOverrides, settings.perspective, settings.dimOpacity, revealed]);
+  const positions = useMemo(() => projection && focus ? layoutConcepts(projection, focus, (id, isFocus) => measureText(labels.get(id)!, isFocus), settings.regionGaps) : new Map(),
+    [projection, focus, measureText, labels, settings.regionGaps]);
+  const curves = useMemo(() => projection ? buildCurves(positions, projection.links, curveStyle) : [], [positions, projection, curveStyle]);
+  const nodes = useMemo<PixiNode[]>(() => [...positions.values()].map(p => {
+    const concept = index.get(p.id), style = labels.get(p.id)!;
+    const accent = concept.participants ? relationColor(index, concept, settings).color
+      : Number.parseInt((index.get(concept.types[0]).schema?.color ?? "#7b8fa3").slice(1), 16);
+    return { ...p, ...style, accent, isFocus: p.id === focus, isRelation: !!concept.participants };
+  }), [positions, index, labels, focus, settings.colorAxis, settings.colorDepth, settings.palette]);
+  const view = GRAPH_VIEWS.find(v => v.id === settings.viewId)!;
+  const perspective = perspectivePreset(settings.perspective);
+  const selected = inspected ? index.byId.get(inspected) : undefined;
+  const visible = useMemo(() => index.concepts.filter(c => {
+    if (tab === "types" ? !index.isType(c) : tab === "roles" ? !index.isRole(c) : index.isType(c) || index.isRole(c)) return false;
+    return !query || [c.label, c.description ?? "", ...(c.aliases ?? []), index.typeLabel(c)].join(" ").toLocaleLowerCase().includes(query.toLocaleLowerCase());
+  }).sort((a, b) => {
+    const primary = (c: Concept) => displayMode(index, c, c.participants ? "relations" : "concepts", settings.perspective) === "main" ? 0 : 1;
+    return primary(a) - primary(b) || a.label.localeCompare(b.label, "zh");
+  }), [index, query, tab, settings.perspective]);
+  const legend = useMemo(() => [...new Map(curves.map(c => [c.colorKey, { key: c.colorKey, label: c.colorLabel, color: c.color }])).values()], [curves]);
 
-  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 });
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [helpOpen, setHelpOpen] = useState(false);
-
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [viewport, setViewport] = useState({ width: 0, height: 0 });
-  const [viewDepth, setViewDepth] = useState(2);
-  const [jumpGap, setJumpGap] = useState(DEFAULT_PLEX.jumpGap);
-  const [curveStyle, setCurveStyle] = useState(DEFAULT_CURVE);
-  const [showRelationLabels, setShowRelationLabels] = useState(false);
-  const textMeasurer = useMemo(() => createTextMeasurer(), []);
-  const onViewportChange = useCallback((width: number, height: number) => {
-    setViewport(old => old.width === width && old.height === height ? old : { width, height });
-  }, []);
-
-  const { persons, families, events, focus } = g.state;
-
-  const index = useMemo(() => buildIndex(families), [families]);
-
-  const focusPerson = useMemo(
-    () => persons.find((p) => p.id === focus) ?? null,
-    [persons, focus]
-  );
-
-  const level = levelFor(camera.zoom);
-
-  const startEdit = useCallback(() => {
-    if (!focusPerson) return;
-    setDraft(displayName(focusPerson));
-    setEditing(true);
-    requestAnimationFrame(() => inputRef.current?.focus());
-  }, [focusPerson]);
-
-  const commitEdit = useCallback(async () => {
-    if (!focus) return;
-    const name = draft.trim();
-    setEditing(false);
-    if (!name) return;
-    await g.renamePerson(focus, name);
-  }, [draft, focus, g]);
-
-  const isEditing = useCallback(() => editing, [editing]);
-
-  useKeyboard({
-    isEditing,
-    move: (dir) => {
-      if (!focus) return;
-      const next = g.neighbor(focus, dir);
-      if (next) g.setFocus(next);
-    },
-    edit: startEdit,
-    addChild: () => void g.quickAdd("child"),
-    addParent: () => void g.quickAdd("parent"),
-    addSpouse: () => void g.quickAdd("spouse"),
-    remove: () => {
-      if (!focus) return;
-      const p = persons.find((x) => x.id === focus);
-      if (p && window.confirm(`删除「${displayName(p)}」及其关系？`)) void g.removePerson(focus);
-    },
-    cancel: () => setEditing(false),
-    help: () => setHelpOpen((v) => !v),
+  const recenter = useCallback(() => setCamera(c => ({ ...c, x: viewport.width / 2, y: viewport.height * 0.46, animate: true })), [viewport]);
+  const choose = useCallback((id: string) => {
+    index.get(id);
+    if (focus && focus !== id) history.current.push(focus);
+    graph.changeSettings({ focusId: id }); setInspected(id); setLibrary(false);
+    recenter();
+  }, [index, focus, graph.changeSettings, recenter]);
+  const fit = () => {
+    if (!nodes.length) return;
+    let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+    for (const n of nodes) { left = Math.min(left, n.x * UNIT_PX - n.width / 2); right = Math.max(right, n.x * UNIT_PX + n.width / 2);
+      top = Math.min(top, n.y * UNIT_PX - n.height / 2); bottom = Math.max(bottom, n.y * UNIT_PX + n.height / 2); }
+    const zoom = Math.min(1.2, Math.max(0.04, Math.min((viewport.width - 120) / Math.max(1, right - left), (viewport.height - 170) / Math.max(1, bottom - top))));
+    setCamera({ x: viewport.width / 2 - (left + right) / 2 * zoom, y: viewport.height * 0.48 - (top + bottom) / 2 * zoom, zoom, animate: true });
+  };
+  const openEditor = (concept?: Concept) => setEditor({ initial: concept,
+    mode: concept ? index.isType(concept) ? "type" : index.isRole(concept) ? "role" : concept.participants ? "relation" : "concept" : "concept" });
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as HTMLElement;
+      if (target.closest("input,textarea,select,button,summary,[contenteditable=true],[role=dialog]")) return;
+      if (event.key === "Escape") { setEditor(null); setHelp(false); setPanel(null); setLibrary(false); return; }
+      if (editor || help) return;
+      if (event.key === "/") { event.preventDefault(); setLibrary(true); requestAnimationFrame(() => search.current?.focus()); return; }
+      if (event.key === "?") { setHelp(true); return; }
+      if (event.key.toLowerCase() === "n") { setEditor({ mode: "concept" }); return; }
+      if (event.key.toLowerCase() === "r") { setEditor({ mode: "relation" }); return; }
+      if (event.key === "Enter" && focus) { event.preventDefault(); openEditor(index.get(focus)); return; }
+      if (event.key === "Backspace") { event.preventDefault(); const id = history.current.pop(); if (id && index.byId.has(id)) { graph.changeSettings({ focusId: id }); setInspected(id); recenter(); } return; }
+      const vector = ({ ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] } as Record<string, number[]>)[event.key];
+      if (!vector || !focus) return;
+      event.preventDefault();
+      const candidates = nodes.filter(n => n.id !== focus && n.emphasis === 1 && n.x * vector[0] + n.y * vector[1] > 0.02)
+        .map(n => ({ n, score: Math.hypot(n.x, n.y) + Math.abs(n.x * vector[1] - n.y * vector[0]) * 1.5 + n.depth * 0.3 })).sort((a, b) => a.score - b.score);
+      if (candidates[0]) choose(candidates[0].n.id);
+    };
+    window.addEventListener("keydown", key); return () => window.removeEventListener("keydown", key);
   });
 
-  /* ---------------- 布局 ---------------- */
+  const toggleExpanded = (id: string) => graph.changeSettings({ expandedRelations: settings.expandedRelations.includes(id)
+    ? settings.expandedRelations.filter(r => r !== id) : [...settings.expandedRelations, id] });
+  const saveConcept = async (concept: Concept) => { await graph.mutate({ put: [concept] }); setInspected(concept.id); setEditor(null); };
+  const deleteSelected = async () => {
+    if (!selected) return;
+    try { await graph.mutate({ remove: [selected.id] }); setInspected(null); } catch { /* 数据层已经显示具体的引用约束错误。 */ }
+  };
+  const onViewport = useCallback((width: number, height: number) => setViewport({ width, height }), []);
+  const relationCount = index.concepts.filter(c => !!c.participants).length;
 
-  const personById = useMemo(() => new Map(persons.map((p) => [p.id, p])), [persons]);
-
-  // 姓名和生卒年使用与渲染相同的字体测量，尺寸中包含完整的文字框。
-  const labels = useMemo(() => {
-    const eventById = new Map(events.map(e => [e.id, e]));
-    const out = new Map<NodeId, NodeLabel>();
-    for (const person of persons) {
-      const ownEvents = (person.eventRefs ?? []).map(id => eventById.get(id)).filter(e => e !== undefined);
-      const born = yearOf(ownEvents, person.eventRefs, "Birth");
-      const died = yearOf(ownEvents, person.eventRefs, "Death");
-      out.set(person.id, {
-        label: displayName(person),
-        sub: born !== "?" || died !== "?" ? `${born}–${died}` : undefined,
-      });
-    }
-    return out;
-  }, [persons, events]);
-  const measureNode = useCallback((id: NodeId, isFocus: boolean) => {
-    const text = labels.get(id);
-    if (!text) throw new Error(`关系中的人物不存在：${id}`);
-    return textMeasurer(text, isFocus);
-  }, [labels, textMeasurer]);
-
-  const layoutResult = useMemo(() => {
-    if (!focus) return null;
-    return plexLayout(focus, index, measureNode, { ...DEFAULT_PLEX, depth: viewDepth, jumpGap });
-  }, [focus, index, measureNode, viewDepth, jumpGap]);
-
-  const curves = useMemo(() => {
-    if (!layoutResult) return [];
-    return buildCurves(layoutResult.positions, layoutResult.links, curveStyle);
-  }, [layoutResult, curveStyle]);
-
-  /* ---------------- 节点数据（给 Pixi） ---------------- */
-
-  const pixiNodes = useMemo<PixiNode[]>(() => {
-    if (!layoutResult) return [];
-    const out: PixiNode[] = [];
-    for (const [id, p] of layoutResult.positions) {
-      const person = personById.get(id);
-      const text = labels.get(id);
-      if (!person || !text) throw new Error(`布局人物缺失：${id}`);
-      out.push({
-        id, x: p.x, y: p.y, ...text,
-        width: p.width, height: p.height,
-        gender: person.gender, isFocus: id === focus,
-        depth: p.depth, zone: p.zone, labelSide: p.labelSide,
-      });
-    }
-    return out;
-  }, [layoutResult, personById, labels, focus]);
-
-  // 身份、端点与实际关系类型一起交给渲染层，过渡时才能让线跟着节点走。
-  const pixiCurves = useMemo<PixiCurve[]>(() => curves, [curves]);
-
-  // 正常聚焦保留缩放、平滑移到新焦点。不能每次都 fit 全图，把文字缩成蚂蚁。
-  // 尺寸来自 Pixi 宿主的 ResizeObserver，异步初始化和手机转屏都会重跑。
-  useEffect(() => {
-    if (!focus || viewport.width === 0 || viewport.height === 0) return;
-    setCamera(cam => ({ ...cam, x: viewport.width / 2, y: viewport.height * 0.44, animate: true }));
-  }, [focus, viewport]);
-
-  const centerFocus = useCallback(() => {
-    setCamera(cam => ({ ...cam, x: viewport.width / 2, y: viewport.height * 0.44, animate: true }));
-  }, [viewport]);
-
-  const fitNeighborhood = useCallback(() => {
-    if (!layoutResult || !viewport.width || !viewport.height) return;
-    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
-    for (const p of layoutResult.positions.values()) {
-      const b = nodeBox(p);
-      left = Math.min(left, b.left * UNIT_PX); right = Math.max(right, b.right * UNIT_PX);
-      top = Math.min(top, b.top * UNIT_PX); bottom = Math.max(bottom, b.bottom * UNIT_PX);
-    }
-    const zoom = Math.min(1, (viewport.width - 56) / (right - left), (viewport.height - 88) / (bottom - top));
-    setCamera({ zoom, x: viewport.width / 2 - (left + right) * zoom / 2,
-      y: viewport.height / 2 - (top + bottom) * zoom / 2, animate: true });
-  }, [layoutResult, viewport]);
-
-  const onNodeClick = useCallback(
-    (id: NodeId) => {
-      g.setFocus(id);
-    },
-    [g]
-  );
-
-  if (g.state.loading) return <div className="loading">载入中…</div>;
-
-  return (
-    <div className="app">
-      <header className="bar">
-        <strong>Kinship</strong>
-        <span className="hint desktop-only">
-          ↑↓←→ 移动 · Enter 改名 · a 子女 · p 父母 · s 配偶 · Del 删除
-        </span>
-        <span className="count">
-          {pixiNodes.length} / {persons.length} 人
-        </span>
-        <button className="btn" onClick={() => setHelpOpen((v) => !v)}>
-          帮助
-        </button>
-      </header>
-
-      {g.state.error && <div className="error">{g.state.error}</div>}
-
-      {persons.length === 0 && (
-        <div className="empty">
-          <p>还没有人</p>
-          <p>点下方按钮添加第一个人</p>
+  return <main className="workspace">
+    <header className="app-header"><div className="brand"><span className="brand-mark">k</span><div><strong>Kinship</strong><span>概念之间，皆有关联。</span></div></div>
+      <div className="header-actions"><span className="save-status" role="status">{graph.pending ? "正在保存…" : graph.error ? "存在未保存变更" : "已保存到概念仓库"}</span>
+        <button className={library ? "active" : ""} onClick={() => setLibrary(v => !v)}>概念库</button>
+        <button className={panel === "settings" ? "active" : ""} onClick={() => setPanel(p => p === "settings" ? null : "settings")}>视图与背景</button>
+        <button aria-label="键盘帮助" onClick={() => setHelp(true)}>?</button></div>
+    </header>
+    {graph.error && <div className="error-banner" role="alert"><span>{graph.error}</span><button onClick={graph.clearError} aria-label="关闭错误提示">×</button></div>}
+    <div className="work-area">
+      <aside className={`concept-library ${library ? "is-open" : ""}`}>
+        <div className="library-heading"><span className="eyebrow">YOUR CONCEPT ATLAS</span><h2>概念图谱 <span>{index.concepts.length}</span></h2></div>
+        <label className="search-field"><span>⌕</span><input ref={search} aria-label="搜索概念" placeholder="搜索概念、类型或别名" value={query} onChange={e => setQuery(e.target.value)} /><kbd>/</kbd></label>
+        <div className="library-tabs" role="group" aria-label="概念类别">{([['instances', '概念'], ['types', '类型'], ['roles', '角色']] as const).map(([id, text]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{text}</button>)}</div>
+        <ConceptLibraryList concepts={visible} index={index} focus={focus} onChoose={choose} category={tab === "types" ? "类型概念" : tab === "roles" ? "角色概念" : "实例概念"} />
+        <div className="library-footer"><button className="primary" onClick={() => setEditor({ mode: "concept" })}>＋ 新建概念</button><button onClick={() => setEditor({ mode: "relation" })}>新建关系</button>
+          <div><button onClick={() => setEditor({ mode: "type" })}>＋ 类型</button><button onClick={() => setEditor({ mode: "role" })}>＋ 角色</button></div></div>
+      </aside>
+      <section className="graph-stage" aria-label="概念工作区">
+        <Background adapter={adapter} settings={settings.background} onError={graph.reportError} />
+        <div className="graph-toolbar"><label className="view-select"><span>视角</span><select aria-label="视角" value={settings.perspective.presetId} onChange={e => graph.changeSettings({ perspective: { ...settings.perspective, presetId: e.target.value } })}>{PERSPECTIVES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+          <button onClick={() => setPanel("perspective")}>配置视角</button>
+          <div className="tool-divider" /><label>邻域<select aria-label="邻域深度" value={settings.depth} onChange={e => graph.changeSettings({ depth: Number(e.target.value) })}>{[1, 2, 3, 4, 6, 8, 12].map(n => <option key={n} value={n}>{n} 跳</option>)}</select></label>
+          <label className="check"><input type="checkbox" checked={settings.showRelationLabels} onChange={e => graph.changeSettings({ showRelationLabels: e.target.checked })} />关系类型文字</label>
+          <button onClick={() => { setInspected(focus); setPanel("details"); }}>焦点详情</button>
         </div>
-      )}
-
-      <div className="canvas">
-        <PixiGraph
-          nodes={pixiNodes}
-          curves={pixiCurves}
-          camera={camera}
-          onCameraChange={setCamera}
-          onNodeClick={onNodeClick}
-          onViewportChange={onViewportChange}
-          curveStyle={curveStyle}
-          showRelationLabels={showRelationLabels}
-          level={level}
-        />
-        <div className="graph-tools" aria-label="图视图设置">
-          <button className="btn" onClick={centerFocus}>回到焦点</button>
-          <button className="btn" onClick={fitNeighborhood}>适应邻域</button>
-          <label>展开
-            <select aria-label="关系展开层数" value={viewDepth} onChange={e => setViewDepth(Number(e.target.value))}>
-              <option value={1}>一级</option><option value={2}>二级</option><option value={3}>三级</option>
-            </select>
-          </label>
-          <label>连线
-            <select aria-label="连线样式" value={curveStyle.type}
-              onChange={e => setCurveStyle(s => ({ ...s, type: e.target.value as "bezier" | "straight" }))}>
-              <option value="bezier">曲线</option><option value="straight">直线</option>
-            </select>
-          </label>
-          <label className="relation-label-switch">
-            <input type="checkbox" checked={showRelationLabels}
-              onChange={e => setShowRelationLabels(e.target.checked)} />关系文字
-          </label>
-          <details className="layout-settings">
-            <summary>布局</summary>
-            <div className="layout-settings-panel">
-              <label htmlFor="jump-gap">左侧跳跃节点距离 <output>{jumpGap}px</output></label>
-              <input id="jump-gap" aria-label="左侧跳跃节点距离" type="range" min={24} max={360} step={4}
-                value={jumpGap} onChange={e => setJumpGap(Number(e.target.value))} />
-              <p>焦点与左侧配偶文字框的基准间距；发生文字碰撞时才额外避让。</p>
-            </div>
-          </details>
+        {focus && projection ? <PixiGraph nodes={nodes} curves={curves} camera={camera} onCameraChange={setCamera} onNodeClick={choose}
+          onRelationClick={id => { setInspected(id); setPanel("details"); }} selectedRelation={selected?.participants ? selected.id : null}
+          onViewportChange={onViewport} curveStyle={curveStyle} showRelationLabels={settings.showRelationLabels}
+          level={camera.zoom < 0.4 ? "far" : camera.zoom < 0.85 ? "mid" : "near"} />
+          : <div className="graph-empty"><h2>从一个概念开始</h2><p>在概念库中选择焦点，或创建新的概念。</p><button className="primary" onClick={() => setLibrary(true)}>打开概念库</button></div>}
+        <div className="region-caption up">上方</div><div className="region-caption down">下方</div>
+        <div className="region-caption left">左侧</div><div className="region-caption right">右侧</div>
+        <div className="focus-card"><span className="eyebrow">CURRENT FOCUS</span><strong>{focus ? index.get(focus).label : "尚未选择"}</strong><span>{perspective.description}</span>
+          {!!projection?.related.length && <button className="related-trigger" onClick={() => setPanel("related")}>相关 · {projection.related.length} ↗</button>}
         </div>
-        <div className="relation-legend" aria-label="关系颜色图例">
-          {(Object.keys(RELATION_LABELS) as RelationKind[]).map(kind => (
-            <span key={kind}><i style={{ background: `#${RELATION_COLORS[kind].toString(16).padStart(6, "0")}` }} />{RELATION_LABELS[kind]}</span>
-          ))}
+        <div className="color-toolbar"><label>赋色轴<select aria-label="赋色轴" value={settings.colorAxis} onChange={e => graph.changeSettings({ colorAxis: e.target.value as ColorAxis })}><option value="relation">关系类型</option><option value="parent-role">亲职端角色</option><option value="child-role">子代端角色</option><option value="role-pair">两端角色对</option></select></label>
+          <label>区分深度<select aria-label="颜色区分深度" value={settings.colorDepth} onChange={e => graph.changeSettings({ colorDepth: Number(e.target.value) })}>{[0, 1, 2, 3, 4, 6, 12].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
+          <select aria-label="关系曲线样式" value={curveStyle.type} onChange={e => graph.changeSettings({ curve: { ...curveStyle, type: e.target.value as CurveStyle["type"] } })}><option value="bezier">贝塞尔</option><option value="straight">直线</option></select>
         </div>
-        <div className="focus-caption" aria-live="polite">
-          {focusPerson && <><span>当前焦点</span><strong>{displayName(focusPerson)}</strong></>}
-        </div>
-      </div>
-
-      <nav className="fab-bar">
-        <button className="fab" onClick={() => void g.quickAdd("parent")}>
-          父母
-        </button>
-        <button className="fab" onClick={startEdit}>
-          改名
-        </button>
-        <button className="fab primary" onClick={() => void g.quickAdd("child")}>
-          子女
-        </button>
-        <button className="fab" onClick={() => void g.quickAdd("spouse")}>
-          配偶
-        </button>
-      </nav>
-
-      <AnimatePresence>
-        {editing && (
-          <motion.div
-            className="editor"
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 16 }}
-            transition={{ duration: 0.15 }}
-          >
-            <input
-              ref={inputRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") void commitEdit();
-                if (e.key === "Escape") setEditing(false);
-              }}
-              placeholder="姓名"
-              inputMode="text"
-            />
-            <button className="btn primary" onClick={() => void commitEdit()}>
-              保存
-            </button>
-            <button className="btn" onClick={() => setEditing(false)}>
-              取消
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {helpOpen && (
-          <motion.div
-            className="help"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-          >
-            <h3>操作</h3>
-            <p className="sub">父母在上 · 子女在下 · 兄弟在右 · 配偶在左</p>
-            <ul>
-              <li>
-                <kbd>↑</kbd> 父母 · <kbd>↓</kbd> 子女 · <kbd>←→</kbd> 兄弟/配偶
-              </li>
-              <li>
-                <kbd>Enter</kbd> 改名
-              </li>
-              <li>
-                <kbd>a</kbd> 加子女 · <kbd>p</kbd> 加父母 · <kbd>s</kbd> 加配偶
-              </li>
-              <li>
-                <kbd>Del</kbd> 删除
-              </li>
-              <li>滚轮缩放，拖拽平移</li>
-            </ul>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        <div className="relation-legend" aria-label="当前赋色图例">{legend.map(l => <label key={l.key}><input aria-label={`${l.label}的颜色`} type="color" value={`#${l.color.toString(16).padStart(6, "0")}`} onChange={e => graph.changeSettings({ palette: { ...settings.palette, [l.key]: e.target.value } })} /><span>{l.label}</span></label>)}</div>
+        <div className="canvas-controls"><button aria-label="缩小" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.04, c.zoom / 1.2) }))}>−</button><output>{Math.round(camera.zoom * 100)}%</output><button aria-label="放大" onClick={() => setCamera(c => ({ ...c, zoom: Math.min(4, c.zoom * 1.2) }))}>＋</button><button onClick={recenter}>回到焦点</button><button onClick={fit}>适应邻域</button></div>
+        <div className="graph-status">{nodes.length} 个显示概念 · {curves.length} 条连接投影 <span>全库 {index.concepts.length} 概念 / {relationCount} 关系实例</span>{!!projection?.omitted && <span className="limit-note">邻域显示上限 {projection.budget}，另有 {projection.omitted} 个已发现概念；搜索可聚焦完整概念库。</span>}</div>
+      </section>
+      {panel && <aside className="inspector"><header><div><span className="eyebrow">{panel === "settings" ? "MAKE IT YOURS" : "CONCEPT ATLAS"}</span><h2>{({ settings: "布局与背景", perspective: "视角配置", related: "收起的相关关系", details: "概念详情" })[panel]}</h2></div><button aria-label="关闭侧面板" onClick={() => setPanel(null)}>×</button></header>
+        {panel === "settings" ? <ViewSettings adapter={adapter} settings={settings} view={view} index={index} onChange={graph.changeSettings} onError={graph.reportError} />
+          : panel === "perspective" ? <PerspectiveControls index={index} settings={settings} onChange={graph.changeSettings} />
+          : panel === "related" ? <div className="inspector-body"><p className="muted">这些关系属于完整图谱，可临时展开查看。主轴位置保持稳定。</p>{projection?.related.map(item => {
+              const r = index.get(item.relationId);
+              return <section key={r.id}><h4>{index.typeLabel(r)}</h4><strong>{r.label}</strong><p className="muted">关联：{item.anchors.map(id => index.get(id).label).join("、")}</p><div className="detail-actions">
+                <button onClick={() => { setInspected(r.id); setPanel("details"); }}>查看详情</button>
+                <button className="primary" onClick={() => { setRevealed(old => new Set([...old, r.id])); setInspected(r.id); }}>临时展开</button></div></section>;
+            })}{!projection?.related.length && <p>当前没有收起的关系。</p>}</div>
+          : selected ? <div className="inspector-body"><span className="type-badge">{index.typeLabel(selected)}</span><h3>{selected.label}</h3><p>{selected.description || "可以添加说明，记录这个概念的含义与背景。"}</p>
+            <div className="detail-actions"><button className="primary" onClick={() => choose(selected.id)}>作为焦点</button><button onClick={() => openEditor(selected)}>编辑</button></div>
+            {selected.participants && <section><h4>参与概念 · {selected.participants.length}</h4>{selected.participants.map(p => <button className="participant-link" key={p.id} onClick={() => choose(p.concept)}><span>{index.roleLabel(p.role)}</span><strong>{index.get(p.concept).label}</strong><span>↗</span></button>)}
+              <button onClick={() => toggleExpanded(selected.id)}>{settings.expandedRelations.includes(selected.id) ? "压缩关系表示" : "展开为关系节点"}</button><p className="muted">多元关系保留枢纽；二元关系可以在线与节点间切换，身份不变。</p></section>}
+            {!!index.relations(selected.id).length && <section><h4>参与的关系 · {index.relations(selected.id).length}</h4>{index.relations(selected.id).map(r => <button className="related-item" key={r.id} onClick={() => { setInspected(r.id); }}>{r.label}<small>{index.typeLabel(r)}</small></button>)}</section>}
+            <section><h4>类型与上级</h4>{[...selected.types, ...(selected.broader ?? [])].map((id, i) => <button className="inline-link" key={`${id}:${i}`} onClick={() => choose(id)}>{index.get(id).label} ↗</button>)}</section>
+            {selected.properties && Object.entries(selected.properties).map(([key, value]) => <p className="property" key={key}><span>{key}</span><strong>{typeof value === "string" ? value : JSON.stringify(value)}</strong></p>)}
+            <details><summary>概念 UUID</summary><code className="uuid">{selected.id}</code></details>
+            <button className="danger-text" disabled={graph.pending > 0 || Object.values(C).includes(selected.id as typeof C[keyof typeof C])} onClick={() => void deleteSelected()}>删除此概念</button>
+          </div> : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
+      </aside>}
     </div>
-  );
-}
-
-export function App({ adapter }: { adapter: DataAdapter }) {
-  return <Inner adapter={adapter} />;
+    {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}
+    {help && <div className="modal-scrim" onClick={() => setHelp(false)}><section className="help-dialog" role="dialog" aria-modal="true" aria-label="键盘帮助" onClick={e => e.stopPropagation()}><button className="close" onClick={() => setHelp(false)}>关闭</button><span className="eyebrow">FIND YOUR FLOW</span><h2>用键盘探索概念</h2><p>方向键沿屏幕方位切换焦点；Backspace 返回上一焦点。</p><dl><dt>/</dt><dd>搜索概念</dd><dt>Enter</dt><dd>编辑焦点</dd><dt>N</dt><dd>新建概念</dd><dt>R</dt><dd>新建关系</dd><dt>?</dt><dd>显示帮助</dd><dt>Esc</dt><dd>关闭面板</dd></dl><p>拖动平移，滚轮或双指缩放。点击关系线检查关系概念。</p></section></div>}
+  </main>;
 }

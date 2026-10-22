@@ -21,6 +21,7 @@ coverage/
 /probe.mjs
 /patch.py
 /进度日志.md
+/2026-10-22-概念内核改造-进度.md
 *.log
 
 # Local genealogy exports / databases (not the checked-in demo fixture)
