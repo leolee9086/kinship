@@ -1,7 +1,6 @@
 /** 先按视角构造语义邻域，再交给视图布局。次要关系不能抢占主轴的位置或继续递归。 */
 import { C, type Concept, type DisplayMode, type GraphSettings, type GraphView, type Participation, type Region } from "./concepts";
 import { ConceptIndex } from "./conceptIndex";
-import { GRAPH_VIEWS } from "./ontology";
 import { displayMode } from "./perspectives";
 
 export interface ProjectedNode { id: string; depth: number; region: Region; priority: number; via: string; emphasis: number }
@@ -67,7 +66,7 @@ export function relationColor(index: ConceptIndex, relation: Concept, settings: 
 export function projectGraph(index: ConceptIndex, focus: string, settings: GraphSettings, budget = 600,
   revealed: ReadonlySet<string> = new Set()): GraphProjection {
   if (!Number.isInteger(budget) || budget < 2) throw new Error("显示概念预算必须是至少 2 的整数");
-  const view = GRAPH_VIEWS.find(v => v.id === settings.viewId);
+  const view = settings.views.find(v => v.id === settings.viewId);
   if (!view) throw new Error("展示样式不存在");
   index.get(focus);
   const nodes = new Map<string, ProjectedNode>([[focus, { id: focus, depth: 0, region: "right", priority: Infinity, via: focus, emphasis: 1 }]]);

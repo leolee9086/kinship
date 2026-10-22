@@ -1,13 +1,13 @@
 /** 通用概念工作台。布局、领域和存储后端各有边界，UI 只调用 DataAdapter。 */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { DataAdapter } from "../adapter/api";
 import { C, type Concept, type ConceptSnapshot, type ColorAxis } from "../domain/concepts";
 import { ConceptIndex } from "../domain/conceptIndex";
-import { GRAPH_VIEWS } from "../domain/ontology";
+import { ConceptCatalog } from "../domain/conceptCatalog";
 import { projectGraph, relationColor } from "../domain/projection";
 import { PixiGraph, type Camera, type PixiNode } from "./PixiGraph";
 import { buildCurves, type CurveStyle } from "./edges";
-import { PERSPECTIVES, displayMode, perspectivePreset } from "../domain/perspectives";
+import { perspectivePreset } from "../domain/perspectives";
 import { PerspectiveControls } from "./PerspectiveControls";
 import { createTextMeasurer, UNIT_PX } from "./graphGeometry";
 import { layoutConcepts } from "./conceptLayout";
@@ -37,7 +37,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
   const [library, setLibrary] = useState(false);
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<"instances" | "types" | "roles">("instances");
-  const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept } | null>(null);
+  const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
   const [help, setHelp] = useState(false);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 0.82 });
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
@@ -49,7 +49,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
     label: c.label, sub: index.typeLabel(c),
   }])), [index]);
   const projection = useMemo(() => focus ? projectGraph(index, focus, settings, 600, revealed) : null,
-    [index, focus, settings.viewId, settings.depth, settings.colorAxis, settings.colorDepth, settings.palette, settings.expandedRelations, settings.regionOverrides, settings.perspective, settings.dimOpacity, revealed]);
+    [index, focus, settings.viewId, settings.views, settings.depth, settings.colorAxis, settings.colorDepth, settings.palette, settings.expandedRelations, settings.regionOverrides, settings.perspective, settings.dimOpacity, revealed]);
   const positions = useMemo(() => projection && focus ? layoutConcepts(projection, focus, (id, isFocus) => measureText(labels.get(id)!, isFocus), settings.regionGaps) : new Map(),
     [projection, focus, measureText, labels, settings.regionGaps]);
   const curves = useMemo(() => projection ? buildCurves(positions, projection.links, curveStyle) : [], [positions, projection, curveStyle]);
@@ -59,16 +59,13 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
       : Number.parseInt((index.get(concept.types[0]).schema?.color ?? "#7b8fa3").slice(1), 16);
     return { ...p, ...style, accent, isFocus: p.id === focus, isRelation: !!concept.participants };
   }), [positions, index, labels, focus, settings.colorAxis, settings.colorDepth, settings.palette]);
-  const view = GRAPH_VIEWS.find(v => v.id === settings.viewId)!;
+  const view = settings.views.find(v => v.id === settings.viewId)!;
   const perspective = perspectivePreset(settings.perspective);
   const selected = inspected ? index.byId.get(inspected) : undefined;
-  const visible = useMemo(() => index.concepts.filter(c => {
-    if (tab === "types" ? !index.isType(c) : tab === "roles" ? !index.isRole(c) : index.isType(c) || index.isRole(c)) return false;
-    return !query || [c.label, c.description ?? "", ...(c.aliases ?? []), index.typeLabel(c)].join(" ").toLocaleLowerCase().includes(query.toLocaleLowerCase());
-  }).sort((a, b) => {
-    const primary = (c: Concept) => displayMode(index, c, c.participants ? "relations" : "concepts", settings.perspective) === "main" ? 0 : 1;
-    return primary(a) - primary(b) || a.label.localeCompare(b.label, "zh");
-  }), [index, query, tab, settings.perspective]);
+  const catalog = useMemo(() => new ConceptCatalog(index), [index]);
+  const deferredQuery = useDeferredValue(query);
+  const visible = useMemo(() => catalog.search(tab, deferredQuery, settings.perspective),
+    [catalog, deferredQuery, tab, settings.perspective]);
   const legend = useMemo(() => [...new Map(curves.map(c => [c.colorKey, { key: c.colorKey, label: c.colorLabel, color: c.color }])).values()], [curves]);
 
   const recenter = useCallback(() => setCamera(c => ({ ...c, x: viewport.width / 2, y: viewport.height * 0.46, animate: true })), [viewport]);
@@ -86,7 +83,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
     const zoom = Math.min(1.2, Math.max(0.04, Math.min((viewport.width - 120) / Math.max(1, right - left), (viewport.height - 170) / Math.max(1, bottom - top))));
     setCamera({ x: viewport.width / 2 - (left + right) / 2 * zoom, y: viewport.height * 0.48 - (top + bottom) / 2 * zoom, zoom, animate: true });
   };
-  const openEditor = (concept?: Concept) => setEditor({ initial: concept,
+  const openEditor = (concept?: Concept) => setEditor({ initial: concept, expectedVersion: concept ? snapshot.conceptVersions[concept.id] : undefined,
     mode: concept ? index.isType(concept) ? "type" : index.isRole(concept) ? "role" : concept.participants ? "relation" : "concept" : "concept" });
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
@@ -113,7 +110,11 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
 
   const toggleExpanded = (id: string) => graph.changeSettings({ expandedRelations: settings.expandedRelations.includes(id)
     ? settings.expandedRelations.filter(r => r !== id) : [...settings.expandedRelations, id] });
-  const saveConcept = async (concept: Concept) => { await graph.mutate({ put: [concept] }); setInspected(concept.id); setEditor(null); };
+  const saveConcept = async (concept: Concept) => {
+    // 使用打开编辑器时的版本，保存期间刷新状态也不能悄悄覆盖他人的修改。
+    await graph.mutate({ put: [concept] }, { expectedVersions: { [concept.id]: editor?.expectedVersion ?? null } });
+    setInspected(concept.id); setEditor(null);
+  };
   const deleteSelected = async () => {
     if (!selected) return;
     try { await graph.mutate({ remove: [selected.id] }); setInspected(null); } catch { /* 数据层已经显示具体的引用约束错误。 */ }
@@ -140,7 +141,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
       </aside>
       <section className="graph-stage" aria-label="概念工作区">
         <Background adapter={adapter} settings={settings.background} onError={graph.reportError} />
-        <div className="graph-toolbar"><label className="view-select"><span>视角</span><select aria-label="视角" value={settings.perspective.presetId} onChange={e => graph.changeSettings({ perspective: { ...settings.perspective, presetId: e.target.value } })}>{PERSPECTIVES.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
+        <div className="graph-toolbar"><label className="view-select"><span>视角</span><select aria-label="视角" value={settings.perspective.presetId} onChange={e => graph.changeSettings({ perspective: { ...settings.perspective, presetId: e.target.value } })}>{settings.perspective.presets.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
           <button onClick={() => setPanel("perspective")}>配置视角</button>
           <div className="tool-divider" /><label>邻域<select aria-label="邻域深度" value={settings.depth} onChange={e => graph.changeSettings({ depth: Number(e.target.value) })}>{[1, 2, 3, 4, 6, 8, 12].map(n => <option key={n} value={n}>{n} 跳</option>)}</select></label>
           <label className="check"><input type="checkbox" checked={settings.showRelationLabels} onChange={e => graph.changeSettings({ showRelationLabels: e.target.checked })} />关系类型文字</label>

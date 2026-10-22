@@ -1,32 +1,21 @@
 /** 通用概念内核。所有业务概念都使用 UUID，不存在家谱专用存储或兼容身份。 */
+import type { Static } from "@sinclair/typebox";
+import type { ConceptSchema, ParticipationSchema, RoleConstraintSchema } from "../contracts/concept";
+import type { MediaInfoSchema } from "../contracts/media";
 export type UUID = string;
 export type ConceptId = UUID;
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 export type Region = "up" | "down" | "left" | "right";
 export type ColorAxis = "relation" | "parent-role" | "child-role" | "role-pair";
 export const isUUID = (value: unknown): value is UUID => typeof value === "string"
-  && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+  && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(value);
 export const newId = (): UUID => crypto.randomUUID();
 
-export interface Participation {
-  /** 相同角色可以出现多次，不能以 role 为字典键丢掉多位参与者。 */
-  id: UUID;
-  role: ConceptId;
-  concept: ConceptId;
-}
-export interface RoleConstraint { role: ConceptId; min?: number; max?: number }
-export interface Concept {
-  id: ConceptId;
-  label: string;
-  aliases?: string[];
-  description?: string;
-  types: ConceptId[];
-  broader?: ConceptId[];
-  /** 关系概念的结构能力；关系本身与参与者使用同一种概念身份。 */
-  participants?: Participation[];
-  schema?: { roles?: RoleConstraint[]; symmetric?: boolean; color?: string };
-  properties?: Record<string, JsonValue>;
-}
+/** 相同角色可以有多个独立槽；静态类型直接来自运行时契约。 */
+export type Participation = Static<typeof ParticipationSchema>;
+export type RoleConstraint = Static<typeof RoleConstraintSchema>;
+/** 关系与参与者使用同一种概念身份，引用完整性由领域层校验。 */
+export type Concept = Static<typeof ConceptSchema>;
 
 export interface RegionRule {
   id: string;
@@ -46,6 +35,8 @@ export interface PerspectivePreset {
 }
 export interface PerspectiveSettings {
   presetId: UUID;
+  /** 预设定义随工作区持久化；内置分类只是新工作区的可编辑起点。 */
+  presets: PerspectivePreset[];
   /** 每个预设独立记忆分类覆盖；不改变演示预设本身。 */
   overrides: Record<UUID, { relations: Record<ConceptId, DisplayMode>; concepts: Record<ConceptId, DisplayMode> }>;
 }
@@ -78,6 +69,7 @@ export interface BackgroundSettings {
 export interface GraphSettings extends GraphStyle {
   /** 视图只选方向/排布样式；不参与显示过滤。 */
   viewId: string;
+  views: GraphView[];
   perspective: PerspectiveSettings;
   focusId: UUID | null;
   depth: number;
@@ -88,9 +80,13 @@ export interface ConceptSnapshot {
   concepts: Concept[];
   settings: GraphSettings;
   revision: number;
+  /** 资源版本用于乐观并发，空间 revision 只提供提交顺序。 */
+  conceptVersions: Record<UUID, number>;
+  presentationVersion: number;
+  viewStateVersion: number;
 }
 export interface ConceptMutation { put?: Concept[]; remove?: ConceptId[] }
-export interface MediaInfo { id: UUID; name: string; type: string; size: number; createdAt: string }
+export type MediaInfo = Static<typeof MediaInfoSchema>;
 export interface StoredMedia extends MediaInfo { blob: Blob }
 
 export const P = {
@@ -99,17 +95,6 @@ export const P = {
   events: "b207cf0b-b798-43b1-9d14-0f53b90e819f",
   all: "6fcdd38c-d4f9-425f-93e3-1c649937ade6",
 } as const;
-export const DEFAULT_SETTINGS: GraphSettings = {
-  viewId: "genealogy", focusId: null, depth: 2,
-  perspective: { presetId: P.genealogy, overrides: {} },
-  regionGaps: { up: 100, down: 100, left: 100, right: 100 },
-  colorAxis: "relation", colorDepth: 2, palette: {}, dimOpacity: 0.055,
-  curve: { type: "bezier", curvature: 0.52 },
-  showRelationLabels: true, expandedRelations: [], regionOverrides: {},
-  background: { mediaId: null, opacity: 0.28, blur: 0, paused: false },
-};
-export const freshSettings = (): GraphSettings => structuredClone(DEFAULT_SETTINGS);
-
 /** 固定 UUID 仅作内置词汇身份。代码中的短名称是引用常量，不进入数据库作为 ID。 */
 export const C = {
   type: "7bb62b43-e0fd-4e21-ac33-2ff51a6050f5",

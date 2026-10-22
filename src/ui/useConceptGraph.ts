@@ -1,6 +1,6 @@
 /** React 数据状态只依赖 DataAdapter。设置和概念写入都穿过资源请求边界。 */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DataAdapter } from "../adapter/api";
+import type { DataAdapter, MutationOptions } from "../adapter/api";
 import type { ConceptMutation, ConceptSnapshot, GraphSettings } from "../domain/concepts";
 
 export function useConceptGraph(adapter: DataAdapter) {
@@ -38,11 +38,11 @@ export function useConceptGraph(adapter: DataAdapter) {
       finally { setPending(n => n - 1); }
     });
   }, [adapter]);
-  const mutate = useCallback(async (change: ConceptMutation) => {
+  const mutate = useCallback(async (change: ConceptMutation, options?: MutationOptions) => {
     setPending(n => n + 1);
     try {
       await saving.current;
-      const data = await adapter.mutate(change);
+      const data = await adapter.mutate(change, options);
       settings.current = data.settings; persisted.current = data.settings; setSnapshot(data);
     } catch (err) { setError(String(err)); throw err; }
     finally { setPending(n => n - 1); }

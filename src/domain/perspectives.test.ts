@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { C, P, freshSettings, newId, type Concept } from "./concepts";
+import { C, P, newId, type Concept } from "./concepts";
+import { starterSettings } from "../templates/starter";
 import { initialSnapshot } from "./ontology";
 import { ConceptIndex } from "./conceptIndex";
 import { displayMode } from "./perspectives";
@@ -118,7 +119,7 @@ it("indexes 100,000 UUID concepts while bounding a high-degree presentation", ()
     ] });
   }
   const started = performance.now(), index = new ConceptIndex(concepts);
-  const settings = freshSettings(); settings.perspective.presetId = P.all; settings.depth = 1;
+  const settings = starterSettings(); settings.perspective.presetId = P.all; settings.depth = 1;
   const projected = projectGraph(index, focus, settings);
   expect(index.byId.size).toBeGreaterThan(100000);
   expect(projected.nodes.size).toBe(600); expect(projected.omitted).toBeGreaterThan(49000);

@@ -1,13 +1,16 @@
-/** 存储后端契约。只有路由层能调用它，前端只接触 DataAdapter。 */
-import type { ConceptMutation, ConceptSnapshot, GraphSettings, MediaInfo, StoredMedia } from "../domain/concepts";
+/** 路由的后端能力边界；可信角色来自后端会话，不在 RPC 参数中接受 actorId。 */
+import type { Commit } from "../contracts/commands";
+import type { Bootstrap, Request, Result, Role } from "../contracts/rpc";
+import type { StoredMedia } from "../domain/concepts";
+import type { QueryValue } from "./workspaceQueries";
 export interface GraphRepository {
-  load(): Promise<ConceptSnapshot>;
-  mutate(input: ConceptMutation): Promise<ConceptSnapshot>;
-  saveSettings(input: GraphSettings): Promise<GraphSettings>;
-  upload(file: Blob, name: string): Promise<MediaInfo>;
-  media(id: string): Promise<StoredMedia>;
-  removeMedia(id: string): Promise<GraphSettings>;
+  readonly role: Role;
+  bootstrap(): Promise<Bootstrap>;
+  apply(input: Request<"apply">): Promise<Commit>;
+  upload(input: Request<"upload">, file: Blob): Promise<Commit>;
+  commandStatus(input: Request<"commandStatus">): Promise<QueryValue<Result<"commandStatus">>>;
+  events(input: Request<"events">): Promise<QueryValue<Result<"events">>>;
+  media(workspaceId: string, id: string): Promise<QueryValue<StoredMedia>>;
   close(): Promise<void>;
 }
-export const MEDIA_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif", "video/mp4", "video/webm", "video/ogg"]);
 export const MAX_MEDIA_BYTES = 100 * 1024 * 1024;

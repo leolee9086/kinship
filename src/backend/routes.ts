@@ -1,41 +1,53 @@
-/** 资源边界：所有概念、配置与二进制媒体都经过同一套请求路由。 */
+/** 注册表绑定到 POST 路由；结构契约、授权与二进制响应遵守同一个版本化协议。 */
 import { createApp } from "@leolee9086/sac-path-router/koa";
 import type { RouterContext } from "@leolee9086/sac-path-router";
-import { InputError } from "../domain/validation";
-import type { ConceptMutation, GraphSettings } from "../domain/concepts";
+import { fail } from "../contracts/errors";
+import { registry, type Method, type Request, type Role } from "../contracts/rpc";
+import { parse } from "../contracts/validate";
+import { readEnvelope, requestIdentity, success, failure } from "./rpcBoundary";
+import { readJSON, readUpload } from "./requestBody";
 import type { GraphRepository } from "./repository";
 
-async function reply(ctx: RouterContext, work: () => Promise<unknown>, status = 200) {
-  try { ctx.body = await work(); ctx.status = status; }
-  catch (error) {
-    ctx.status = error instanceof InputError ? error.status : 500;
-    ctx.body = { error: error instanceof Error ? error.message : "存储请求失败" };
-  }
-}
-
+interface Reply { result: unknown; workspaceId: string; revision: number; binary?: Blob }
+const rank: Record<Role, number> = { guest: 0, collaborator: 1, administrator: 2 };
 export function buildDataRouter(repository: GraphRepository) {
   const app = createApp();
-  app.get("/api/graph", ctx => reply(ctx, () => repository.load()));
-  app.post("/api/concepts/mutations", ctx => reply(ctx, async () =>
-    repository.mutate(await ctx.request.json() as ConceptMutation)));
-  app.put("/api/settings", ctx => reply(ctx, async () =>
-    repository.saveSettings(await ctx.request.json() as GraphSettings)));
-  app.post("/api/media", ctx => reply(ctx, async () => {
-    const form = await ctx.request.formData();
-    const file = form.get("file");
-    if (!(file instanceof File)) throw new InputError("需要 multipart/form-data 的 file 上传字段");
-    return repository.upload(file, file.name);
-  }, 201));
-  app.get("/api/media/:id/content", ctx => reply(ctx, async () => {
-    const media = await repository.media(ctx.params.id);
-    ctx.responseHeaders.set("content-type", media.type);
-    ctx.responseHeaders.set("content-length", String(media.size));
-    return media.blob;
-  }));
-  app.get("/api/media/:id", ctx => reply(ctx, async () => {
-    const { blob: _, ...info } = await repository.media(ctx.params.id);
-    return info;
-  }));
-  app.delete("/api/media/:id", ctx => reply(ctx, () => repository.removeMedia(ctx.params.id)));
+  const bind = <M extends Method>(name: M, work: (input: Request<M>, file?: File) => Promise<Reply>) => {
+    const contract = registry[name];
+    app.post(contract.path, async (ctx: RouterContext) => {
+      let source: unknown;
+      try {
+        const uploaded = name === "upload" ? await readUpload(ctx.request) : undefined;
+        source = uploaded ? uploaded.source : await readJSON(ctx.request);
+        // 注册表的 schema 与工作函数由同一个名字关联，动态分发处集中做这一次类型桥接。
+        const input = readEnvelope(contract.request, source) as Request<M>;
+        if (rank[repository.role] < rank[contract.role]) fail("FORBIDDEN", "当前空间角色不允许该操作");
+        const reply = await work(input, uploaded?.file);
+        if (reply.binary) {
+          const info = parse(registry.mediaContent.result, reply.result, "INTERNAL_ERROR");
+          ctx.body = reply.binary; ctx.status = 200;
+          const headers = { "content-type": info.type, "content-length": String(info.size), "cache-control": "no-store",
+            "x-request-id": input.requestId, "x-kinship-protocol": "kinship.rpc/1", "x-workspace-id": reply.workspaceId,
+            "x-workspace-revision": String(reply.revision), "x-resource-id": info.id, "x-resource-version": String(info.version),
+            "x-content-sha256": info.sha256 };
+          for (const [key, value] of Object.entries(headers)) ctx.responseHeaders.set(key, value);
+        } else success(ctx, contract.result, input.requestId, reply.result, reply.workspaceId, reply.revision);
+      } catch (error) { failure(ctx, error, requestIdentity(source)); }
+    });
+  };
+  bind("bootstrap", async () => { const result = await repository.bootstrap();
+    return { result, workspaceId: result.workspaceId, revision: result.revision }; });
+  bind("apply", async input => { const result = await repository.apply(input);
+    return { result, workspaceId: input.workspaceId, revision: result.revision }; });
+  bind("commandStatus", async input => { const reply = await repository.commandStatus(input); return { result: reply.value, ...reply.context }; });
+  bind("events", async input => { const reply = await repository.events(input); return { result: reply.value, ...reply.context }; });
+  bind("upload", async (input, file) => {
+    if (!file || file.name !== input.params.name) fail("INVALID_REQUEST", "上传文件名与元数据不符");
+    const result = await repository.upload(input, file); return { result, workspaceId: input.workspaceId, revision: result.revision };
+  });
+  bind("mediaInfo", async input => { const reply = await repository.media(input.workspaceId, input.params.id);
+    const { blob: _, ...result } = reply.value; return { result, ...reply.context }; });
+  bind("mediaContent", async input => { const reply = await repository.media(input.workspaceId, input.params.id);
+    const { blob, ...result } = reply.value; return { result, binary: blob, ...reply.context }; });
   return app;
 }

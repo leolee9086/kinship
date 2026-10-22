@@ -3,7 +3,6 @@ import { useState } from "react";
 import type { DataAdapter } from "../adapter/api";
 import type { GraphSettings, GraphView, Region, MediaInfo } from "../domain/concepts";
 import type { ConceptIndex } from "../domain/conceptIndex";
-import { GRAPH_VIEWS } from "../domain/ontology";
 const regions: { value: Region; label: string }[] = [{ value: "up", label: "上" }, { value: "down", label: "下" }, { value: "left", label: "左" }, { value: "right", label: "右" }];
 
 export function ViewSettings({ adapter, settings, view, index, onChange, onError }: {
@@ -50,7 +49,7 @@ export function ViewSettings({ adapter, settings, view, index, onChange, onError
       <button disabled={uploading || !settings.background.mediaId} onClick={() => void clear()}>移除背景</button>
     </section>
     <section><span className="eyebrow">SEMANTIC LAYOUT</span><h3>方向布局</h3><p className="muted">方向规则相对当前焦点阅读。连线按两端的实际位置选择出入口。</p>
-      <label>方向布局预设<select aria-label="方向布局预设" value={settings.viewId} onChange={e => onChange({ viewId: e.target.value })}>{GRAPH_VIEWS.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}</select></label>
+      <label>方向布局预设<select aria-label="方向布局预设" value={settings.viewId} onChange={e => onChange({ viewId: e.target.value })}>{settings.views.map(v => <option key={v.id} value={v.id}>{v.label}</option>)}</select></label>
       {view.rules.map(rule => <label className="rule-row" key={rule.id}><span>{index.get(rule.relationType).label}{rule.focusRole && <small>焦点角色：{index.get(rule.focusRole).label}</small>}</span>
         <select aria-label={`${rule.id} 的展示方向`} value={settings.regionOverrides[rule.id] ?? rule.region} onChange={e => onChange({ regionOverrides: { ...settings.regionOverrides, [rule.id]: e.target.value as Region } })}>
           {regions.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}

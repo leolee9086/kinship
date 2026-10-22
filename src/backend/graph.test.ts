@@ -3,7 +3,7 @@ import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
 import { C, P, isUUID, newId, type Concept } from '../domain/concepts';
 import { ConceptIndex } from '../domain/conceptIndex';
-import { initialSnapshot, GRAPH_VIEWS } from '../domain/ontology';
+import { initialSnapshot } from '../domain/ontology';
 import { projectGraph, relationColor } from '../domain/projection';
 import { layoutConcepts } from '../ui/conceptLayout';
 import { buildCurves, curveInViewport } from '../ui/edges';
@@ -62,7 +62,7 @@ describe('single concept identity and multirelations', () => {
     const centered = projectGraph(index, relation.id, { ...s.settings, focusId: relation.id });
     expect(centered.distances.get(father.id)).toBe(1);
     expect(centered.distances.get(son.id)).toBe(1);
-    expect(GRAPH_VIEWS).toHaveLength(4);
+    expect(s.settings.views).toHaveLength(4);
   });
   it('separates color depth and layout, routes parallel relations, preserves whole-curve culling', () => {
     const s = initialSnapshot(), index = new ConceptIndex(s.concepts);

@@ -1,5 +1,6 @@
 /** 默认词汇也是普通概念；领域默认值与通用内核分离。 */
-import { C, newId, freshSettings, type Concept, type ConceptSnapshot, type GraphView, type RegionRule } from "./concepts";
+import { C, newId, type Concept, type ConceptSnapshot } from "./concepts";
+import { starterSettings } from "../templates/starter";
 
 const type = (id: string, label: string, parent = C.concept as string, color?: string): Concept => ({
   id, label, types: [C.type], broader: id === C.concept ? [] : [parent], schema: { color },
@@ -37,36 +38,6 @@ export function builtinConcepts(): Concept[] {
     role(C.member, "成员"), role(C.group, "组织"),
   ];
 }
-
-const rule = (id: string, relationType: string, region: RegionRule["region"], priority: number,
-  focusRole?: string): RegionRule => ({ id, relationType, region, priority, focusRole });
-const familyRules = [
-  rule("parents", C.parenthood, "up", 100, C.child),
-  rule("children", C.parenthood, "down", 100, C.parent),
-  rule("spouses", C.spouse, "left", 90), rule("siblings", C.sibling, "right", 80),
-  rule("colleagues", C.colleague, "right", 50),
-  rule("events", C.participation, "right", 30), rule("places", C.location, "left", 25),
-  rule("evidence", C.evidence, "left", 20), rule("members", C.membership, "right", 35),
-  rule("other", C.relation, "right", 1),
-];
-
-export const GRAPH_VIEWS: GraphView[] = [
-  { id: "genealogy", label: "人物 · 家谱", description: "人物为主轴，亲子关系优先定位；事件与地点仍可聚焦。",
-    primaryTypes: [C.person], rules: familyRules,
-    regionLabels: { up: "父母 / 上游", down: "子女 / 下游", left: "配偶 / 上下文", right: "手足 / 同僚 / 事件" } },
-  { id: "work", label: "人物 · 协作", description: "同僚关系优先定位，亲子作为跨区关系保留。",
-    primaryTypes: [C.person, C.organization],
-    rules: [rule("work-colleagues", C.colleague, "right", 130), rule("work-groups", C.membership, "left", 120), ...familyRules],
-    regionLabels: { up: "上游关联", down: "下游关联", left: "组织 / 上下文", right: "同僚 / 协作" } },
-  { id: "events", label: "事件 · 地点", description: "从事件或地点阅读参与者、机构及材料，人物不再垄断布局。",
-    primaryTypes: [C.event, C.place],
-    rules: [rule("event-people", C.participation, "down", 140), rule("event-place", C.location, "up", 130),
-      rule("event-evidence", C.evidence, "left", 120), ...familyRules],
-    regionLabels: { up: "地点 / 上游", down: "参与者", left: "文献 / 来源", right: "关联 / 组织" } },
-  { id: "concepts", label: "通用 · 概念", description: "所有概念和关系实例可导航，按关系规则组织四方。",
-    primaryTypes: [C.concept], rules: familyRules,
-    regionLabels: { up: "上游", down: "下游", left: "上下文", right: "关联" } },
-];
 
 /** 只在一个全新的概念仓库中创建演示；重开页面不重新生成这些 UUID。 */
 export function initialSnapshot(): ConceptSnapshot {
@@ -107,7 +78,8 @@ export function initialSnapshot(): ConceptSnapshot {
   relationship("水患资料整理参与记录", C.participation, [[C.eventRole, flood], [C.participant, daughter], [C.participant, son]]);
   relationship("纪要记载父子关系", C.evidence, [[C.source, document], [C.claim, fatherSon]]);
   relationship("纪要记载同僚关系", C.evidence, [[C.source, document], [C.claim, colleagues]]);
-  const settings = freshSettings();
+  const settings = starterSettings();
   settings.focusId = lin;
-  return { version: 1, concepts, settings, revision: 0 };
+  return { version: 1, concepts, settings, revision: 0, conceptVersions: Object.fromEntries(concepts.map(c => [c.id, 1])),
+    presentationVersion: 1, viewStateVersion: 1 };
 }

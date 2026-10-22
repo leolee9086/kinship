@@ -1,20 +1,8 @@
 /** 服务边界校验。错误显式返回，不能通过忽略非法字段制造“保存成功”。 */
 import { C, isUUID, type Concept, type ConceptMutation, type GraphSettings } from "./concepts";
 import { ConceptIndex } from "./conceptIndex";
-import { GRAPH_VIEWS } from "./ontology";
-import { DISPLAY_MODES, PERSPECTIVES } from "./perspectives";
-
-export class InputError extends Error {
-  constructor(message: string, readonly status = 400) { super(message); this.name = "InputError"; }
-}
-function assert(value: unknown, message: string): asserts value {
-  if (!value) throw new InputError(message);
-}
-function object(value: unknown): asserts value is Record<string, unknown> {
-  assert(value !== null && typeof value === "object" && !Array.isArray(value), "需要对象数据");
-}
-export function uuid(value: unknown): asserts value is string { assert(isUUID(value), "概念及槽位 ID 必须是 UUID"); }
-const text = (value: unknown, name: string) => assert(typeof value === "string" && value.trim().length > 0, `${name}不能为空`);
+import { assert, object, text, uuid } from "./inputValidation";
+import { validatePresentation } from "./presentationValidation";
 
 export function validateConcepts(values: unknown): Concept[] {
   assert(Array.isArray(values), "概念集合必须是数组");
@@ -109,24 +97,13 @@ export function applyMutation(current: readonly Concept[], input: unknown): Conc
 
 export function validateSettings(value: unknown): GraphSettings {
   object(value);
-  assert(GRAPH_VIEWS.some(v => v.id === value.viewId), "未知的视图配置");
+  validatePresentation(value);
   assert(value.focusId === null || isUUID(value.focusId), "焦点必须为 UUID 或 null");
   assert(Number.isInteger(value.depth) && Number(value.depth) >= 1 && Number(value.depth) <= 12, "邻域深度必须为 1–12");
   object(value.regionGaps);
   for (const side of ["up", "down", "left", "right"]) {
     const gap = value.regionGaps[side];
     assert(typeof gap === "number" && Number.isFinite(gap) && gap >= 16 && gap <= 1000, `${side}方向间距超出范围`);
-  }
-  object(value.perspective);
-  const perspective = value.perspective;
-  assert(PERSPECTIVES.some(p => p.id === perspective.presetId), "未知视角预设");
-  object(value.perspective.overrides);
-  for (const [id, change] of Object.entries(value.perspective.overrides)) {
-    assert(PERSPECTIVES.some(p => p.id === id), "视角覆盖引用无效");
-    object(change); object(change.relations); object(change.concepts);
-    for (const [typeId, mode] of [...Object.entries(change.relations), ...Object.entries(change.concepts)]) {
-      uuid(typeId); assert(DISPLAY_MODES.some(m => m.value === mode), "视角显示方式无效");
-    }
   }
   assert(typeof value.dimOpacity === "number" && Number.isFinite(value.dimOpacity) && value.dimOpacity >= 0 && value.dimOpacity <= 1, "淡显强度超出范围");
   object(value.curve);

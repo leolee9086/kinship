@@ -1,0 +1,75 @@
+{
+  "format": "kinship.presentation",
+  "spec": 1,
+  "id": "e8b8f162-d954-42ce-a048-8ab622961dbc",
+  "viewId": "genealogy",
+  "views": [
+    {
+      "id": "genealogy", "label": "人物 · 家谱", "description": "沿角色配置组织亲子与配偶等演示关系。",
+      "primaryTypes": ["98526bf9-8917-4799-83c7-137b8372a45e"],
+      "regionLabels": { "up": "上方", "down": "下方", "left": "左侧", "right": "右侧" },
+      "rules": [
+        { "id": "parents", "relationType": "b90fa60e-02d3-4edd-803d-caa7d6a7ad8b", "focusRole": "0fa90cf1-6218-4d39-8147-561b58430654", "region": "up", "priority": 100 },
+        { "id": "children", "relationType": "b90fa60e-02d3-4edd-803d-caa7d6a7ad8b", "focusRole": "819024b7-b7b0-4099-9827-b8681318eb17", "region": "down", "priority": 100 },
+        { "id": "spouses", "relationType": "b3e2ffe9-9e08-401e-b270-c63a70918633", "region": "left", "priority": 90 },
+        { "id": "siblings", "relationType": "8785ae0b-b474-45d4-928b-0aef4451c08f", "region": "right", "priority": 80 },
+        { "id": "other", "relationType": "eed3a8a2-80e5-4ccc-bd08-ecf843909618", "region": "right", "priority": 1 }
+      ]
+    },
+    {
+      "id": "work", "label": "人物 · 协作", "description": "同僚和组织成员关系优先，规则可以继续编辑。",
+      "primaryTypes": ["98526bf9-8917-4799-83c7-137b8372a45e", "1a1e09f6-6eb5-45d9-8b45-c24aef5d3ecd"],
+      "regionLabels": { "up": "上方", "down": "下方", "left": "组织", "right": "协作" },
+      "rules": [
+        { "id": "work-colleagues", "relationType": "65e2cd10-e6a5-4231-9e39-b2de34813ae8", "region": "right", "priority": 130 },
+        { "id": "work-groups", "relationType": "35b76f71-973c-4542-8269-5d40d3babbe5", "region": "left", "priority": 120 },
+        { "id": "work-parents", "relationType": "b90fa60e-02d3-4edd-803d-caa7d6a7ad8b", "focusRole": "0fa90cf1-6218-4d39-8147-561b58430654", "region": "up", "priority": 100 },
+        { "id": "work-children", "relationType": "b90fa60e-02d3-4edd-803d-caa7d6a7ad8b", "focusRole": "819024b7-b7b0-4099-9827-b8681318eb17", "region": "down", "priority": 100 },
+        { "id": "work-other", "relationType": "eed3a8a2-80e5-4ccc-bd08-ecf843909618", "region": "right", "priority": 1 }
+      ]
+    },
+    {
+      "id": "events", "label": "事件 · 地点", "description": "按参与、发生地与来源规则组织事件。",
+      "primaryTypes": ["b41ce38d-bac6-4a3b-9025-fbec2855d313", "07ae6524-792b-4a25-ad9a-3f614fb4cc82"],
+      "regionLabels": { "up": "发生地", "down": "参与者", "left": "来源", "right": "关联" },
+      "rules": [
+        { "id": "event-people", "relationType": "d335dd59-0197-438b-bd37-f3758576ff49", "region": "down", "priority": 140 },
+        { "id": "event-place", "relationType": "3ef2a890-838b-490c-bcf3-2d79e69b6644", "region": "up", "priority": 130 },
+        { "id": "event-evidence", "relationType": "884017f1-f17a-4e25-90b6-f5dabd5b4c15", "region": "left", "priority": 120 },
+        { "id": "event-other", "relationType": "eed3a8a2-80e5-4ccc-bd08-ecf843909618", "region": "right", "priority": 1 }
+      ]
+    },
+    {
+      "id": "concepts", "label": "通用 · 概念", "description": "方向只取决于当前配置的关系和角色。",
+      "primaryTypes": ["e8881fbf-6877-4a76-814e-dbcd45d63d03"],
+      "regionLabels": { "up": "上游", "down": "下游", "left": "上下文", "right": "关联" },
+      "rules": [{ "id": "general", "relationType": "eed3a8a2-80e5-4ccc-bd08-ecf843909618", "region": "right", "priority": 1 }]
+    }
+  ],
+  "perspective": {
+    "presetId": "1a23969d-9c46-40ae-8997-f9df737d6394",
+    "overrides": {},
+    "presets": [
+      {
+        "id": "1a23969d-9c46-40ae-8997-f9df737d6394", "label": "族谱", "description": "沿亲族关系阅读人物，其余关系收进相关。",
+        "relations": { "eed3a8a2-80e5-4ccc-bd08-ecf843909618": "related", "fbbac363-58eb-4a4e-a698-63b1e87bf573": "main" },
+        "concepts": { "e8881fbf-6877-4a76-814e-dbcd45d63d03": "related", "7bb62b43-e0fd-4e21-ac33-2ff51a6050f5": "related", "33d12d5b-8b96-4b4d-b8e8-8cb5cb93f6a5": "related", "98526bf9-8917-4799-83c7-137b8372a45e": "main" }
+      },
+      {
+        "id": "77cc46e2-72d1-4bc0-9a6a-da1458ae2584", "label": "协作", "description": "突出同僚与组织成员，保留可展开的其他背景。",
+        "relations": { "eed3a8a2-80e5-4ccc-bd08-ecf843909618": "related", "65e2cd10-e6a5-4231-9e39-b2de34813ae8": "main", "35b76f71-973c-4542-8269-5d40d3babbe5": "main" },
+        "concepts": { "e8881fbf-6877-4a76-814e-dbcd45d63d03": "related", "7bb62b43-e0fd-4e21-ac33-2ff51a6050f5": "related", "33d12d5b-8b96-4b4d-b8e8-8cb5cb93f6a5": "related", "98526bf9-8917-4799-83c7-137b8372a45e": "main", "1a1e09f6-6eb5-45d9-8b45-c24aef5d3ecd": "main" }
+      },
+      {
+        "id": "b207cf0b-b798-43b1-9d14-0f53b90e819f", "label": "事件", "description": "突出参与与发生地，其他关系收进相关。",
+        "relations": { "eed3a8a2-80e5-4ccc-bd08-ecf843909618": "related", "d335dd59-0197-438b-bd37-f3758576ff49": "main", "3ef2a890-838b-490c-bcf3-2d79e69b6644": "main" },
+        "concepts": { "e8881fbf-6877-4a76-814e-dbcd45d63d03": "related", "7bb62b43-e0fd-4e21-ac33-2ff51a6050f5": "related", "33d12d5b-8b96-4b4d-b8e8-8cb5cb93f6a5": "related", "98526bf9-8917-4799-83c7-137b8372a45e": "main", "b41ce38d-bac6-4a3b-9025-fbec2855d313": "main", "07ae6524-792b-4a25-ad9a-3f614fb4cc82": "main" }
+      },
+      {
+        "id": "6fcdd38c-d4f9-425f-93e3-1c649937ade6", "label": "全部关系", "description": "沿所有关系探索，多人关系保留自己的枢纽。",
+        "relations": { "eed3a8a2-80e5-4ccc-bd08-ecf843909618": "main" },
+        "concepts": { "e8881fbf-6877-4a76-814e-dbcd45d63d03": "main", "7bb62b43-e0fd-4e21-ac33-2ff51a6050f5": "main", "33d12d5b-8b96-4b4d-b8e8-8cb5cb93f6a5": "main" }
+      }
+    ]
+  }
+}
