@@ -1,8 +1,9 @@
 /** 服务边界校验。错误显式返回，不能通过忽略非法字段制造“保存成功”。 */
-import { C, isUUID, type Concept, type ConceptMutation, type GraphSettings } from "./concepts";
+import { isUUID, type Concept, type ConceptMutation, type GraphSettings } from "./concepts";
 import { ConceptIndex } from "./conceptIndex";
 import { assert, object, text, uuid } from "./inputValidation";
 import { validatePresentation } from "./presentationValidation";
+import { coreVocabulary } from "./coreVocabulary";
 
 export function validateConcepts(values: unknown): Concept[] {
   assert(Array.isArray(values), "概念集合必须是数组");
@@ -47,6 +48,7 @@ export function validateConcepts(values: unknown): Concept[] {
       }
     }
   }
+  for (const slot of slots) assert(!ids.has(slot), "参与槽不能复用概念 UUID");
   const concepts = values as Concept[];
   const index = new ConceptIndex(concepts);
   for (const c of concepts) {
@@ -85,9 +87,8 @@ export function applyMutation(current: readonly Concept[], input: unknown): Conc
   assert(input.remove === undefined || Array.isArray(input.remove), "remove 必须是数组");
   const mutation = input as ConceptMutation;
   const result = new Map(current.map(c => [c.id, c]));
-  const protectedIds = new Set<string>(Object.values(C));
   for (const id of mutation.remove ?? []) {
-    uuid(id); assert(!protectedIds.has(id), "不能删除内置词汇；可以创建自定义子类");
+    uuid(id); assert(!coreVocabulary.has(id), "不能删除通用语义根");
     assert(result.has(id), "待删除概念不存在"); result.delete(id);
   }
   for (const c of mutation.put ?? []) { object(c); uuid(c.id); result.set(c.id, c); }
@@ -108,7 +109,7 @@ export function validateSettings(value: unknown): GraphSettings {
   assert(typeof value.dimOpacity === "number" && Number.isFinite(value.dimOpacity) && value.dimOpacity >= 0 && value.dimOpacity <= 1, "淡显强度超出范围");
   object(value.curve);
   assert(["bezier", "straight"].includes(String(value.curve.type)) && Number.isFinite(value.curve.curvature) && Number(value.curve.curvature) >= 0 && Number(value.curve.curvature) <= 3, "关系线样式无效");
-  assert(["relation", "parent-role", "child-role", "role-pair"].includes(String(value.colorAxis)), "未知赋色轴");
+  assert(["relation", "first-role", "second-role", "role-pair"].includes(String(value.colorAxis)), "未知赋色轴");
   assert(Number.isInteger(value.colorDepth) && Number(value.colorDepth) >= 0 && Number(value.colorDepth) <= 12, "颜色区分深度必须为 0–12");
   assert(typeof value.showRelationLabels === "boolean", "关系文字设置必须为布尔值");
   assert(Array.isArray(value.expandedRelations), "展开关系必须是数组"); value.expandedRelations.forEach(uuid);

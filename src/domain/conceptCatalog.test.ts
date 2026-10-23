@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 import { builtinConcepts } from "./ontology";
-import { C, P, newId, type Concept } from "./concepts";
+import { newId, type Concept } from "./concepts";
+import { C, P } from "../testing/starterFixtures";
 import { starterSettings } from "../templates/starter";
 import { ConceptIndex } from "./conceptIndex";
 import { ConceptCatalog } from "./conceptCatalog";

@@ -18,7 +18,7 @@ export function ConceptEditor({ index, initial, mode, focus, busy, onSave, onClo
   const [properties, setProperties] = useState(JSON.stringify(initial?.properties ?? {}, null, 2));
   const [participants, setParticipants] = useState<Participation[]>(() => initial?.participants
     ? structuredClone(initial.participants) : mode === "relation"
-      ? [{ id: newId(), role: C.subject, concept: focus ?? "" }, { id: newId(), role: C.object, concept: "" }] : []);
+      ? [{ id: newId(), role: C.participant, concept: focus ?? "" }, { id: newId(), role: C.participant, concept: "" }] : []);
   const [formError, setFormError] = useState<string | null>(null);
   const types = index.concepts.filter(c => index.isType(c));
   const roles = index.concepts.filter(c => index.isRole(c));

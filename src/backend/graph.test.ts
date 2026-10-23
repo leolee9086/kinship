@@ -1,7 +1,8 @@
 /** 隔离 IDB 实例；不触碰浏览器真实家谱或概念仓库。 */
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it } from 'vitest';
-import { C, P, isUUID, newId, type Concept } from '../domain/concepts';
+import { isUUID, newId, type Concept } from '../domain/concepts';
+import { C, P } from '../testing/starterFixtures';
 import { ConceptIndex } from '../domain/conceptIndex';
 import { initialSnapshot } from '../domain/ontology';
 import { projectGraph, relationColor } from '../domain/projection';
@@ -69,10 +70,10 @@ describe('single concept identity and multirelations', () => {
     const father = find(s.concepts, '林承远'), son = find(s.concepts, '林见川');
     const rel = find(s.concepts, '林承远与林见川的父子关系');
     const mother = find(s.concepts, '沈知微与林见川的母子关系');
-    const depth0 = { ...s.settings, colorAxis: 'parent-role' as const, colorDepth: 0 };
+    const depth0 = { ...s.settings, colorAxis: 'first-role' as const, colorDepth: 0 };
     expect(relationColor(index, rel, depth0).colorKey).toBe(relationColor(index, mother, depth0).colorKey);
-    const depth1 = { ...depth0, colorDepth: 1 };
-    expect(relationColor(index, rel, depth1).colorKey).not.toBe(relationColor(index, mother, depth1).colorKey);
+    const depth2 = { ...depth0, colorDepth: 2 };
+    expect(relationColor(index, rel, depth2).colorKey).not.toBe(relationColor(index, mother, depth2).colorKey);
     s.settings.perspective.presetId = P.all;
     const graph = projectGraph(index, father.id, s.settings);
     const positioned = layoutConcepts(graph, father.id, () => ({ width: 126, height: 44 }), s.settings.regionGaps);

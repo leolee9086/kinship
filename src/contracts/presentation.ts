@@ -26,7 +26,7 @@ export const ViewStateSchema = strictObject({
   overrides: Type.Record(UUIDSchema, strictObject({ relations: classification, concepts: classification })),
   regionGaps: strictObject({ up: spacing, down: spacing, left: spacing, right: spacing }),
   regionOverrides: Type.Record(Type.String({ maxLength: 512 }), RegionSchema),
-  colorAxis: Type.Union([Type.Literal("relation"), Type.Literal("parent-role"), Type.Literal("child-role"), Type.Literal("role-pair")]),
+  colorAxis: Type.Union([Type.Literal("relation"), Type.Literal("first-role"), Type.Literal("second-role"), Type.Literal("role-pair")]),
   colorDepth: Type.Integer({ minimum: 0, maximum: 12 }),
   palette: Type.Record(Type.String({ maxLength: 2048 }), Type.String({ pattern: "^#[0-9a-fA-F]{6}$" })),
   dimOpacity: Type.Number({ minimum: 0, maximum: 1 }), showRelationLabels: Type.Boolean(),

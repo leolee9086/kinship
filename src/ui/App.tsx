@@ -1,7 +1,8 @@
 /** 通用概念工作台。布局、领域和存储后端各有边界，UI 只调用 DataAdapter。 */
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import type { DataAdapter } from "../adapter/api";
-import { C, type Concept, type ConceptSnapshot, type ColorAxis } from "../domain/concepts";
+import type { Concept, ConceptSnapshot, ColorAxis } from "../domain/concepts";
+import { coreVocabulary } from "../domain/coreVocabulary";
 import { ConceptIndex } from "../domain/conceptIndex";
 import { ConceptCatalog } from "../domain/conceptCatalog";
 import { projectGraph, relationColor } from "../domain/projection";
@@ -158,7 +159,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
         <div className="focus-card"><span className="eyebrow">CURRENT FOCUS</span><strong>{focus ? index.get(focus).label : "尚未选择"}</strong><span>{perspective.description}</span>
           {!!projection?.related.length && <button className="related-trigger" onClick={() => setPanel("related")}>相关 · {projection.related.length} ↗</button>}
         </div>
-        <div className="color-toolbar"><label>赋色轴<select aria-label="赋色轴" value={settings.colorAxis} onChange={e => graph.changeSettings({ colorAxis: e.target.value as ColorAxis })}><option value="relation">关系类型</option><option value="parent-role">亲职端角色</option><option value="child-role">子代端角色</option><option value="role-pair">两端角色对</option></select></label>
+        <div className="color-toolbar"><label>赋色轴<select aria-label="赋色轴" value={settings.colorAxis} onChange={e => graph.changeSettings({ colorAxis: e.target.value as ColorAxis })}><option value="relation">关系类型</option><option value="first-role">第一参与角色</option><option value="second-role">第二参与角色</option><option value="role-pair">前两参与角色对</option></select></label>
           <label>区分深度<select aria-label="颜色区分深度" value={settings.colorDepth} onChange={e => graph.changeSettings({ colorDepth: Number(e.target.value) })}>{[0, 1, 2, 3, 4, 6, 12].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
           <select aria-label="关系曲线样式" value={curveStyle.type} onChange={e => graph.changeSettings({ curve: { ...curveStyle, type: e.target.value as CurveStyle["type"] } })}><option value="bezier">贝塞尔</option><option value="straight">直线</option></select>
         </div>
@@ -183,7 +184,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
             <section><h4>类型与上级</h4>{[...selected.types, ...(selected.broader ?? [])].map((id, i) => <button className="inline-link" key={`${id}:${i}`} onClick={() => choose(id)}>{index.get(id).label} ↗</button>)}</section>
             {selected.properties && Object.entries(selected.properties).map(([key, value]) => <p className="property" key={key}><span>{key}</span><strong>{typeof value === "string" ? value : JSON.stringify(value)}</strong></p>)}
             <details><summary>概念 UUID</summary><code className="uuid">{selected.id}</code></details>
-            <button className="danger-text" disabled={graph.pending > 0 || Object.values(C).includes(selected.id as typeof C[keyof typeof C])} onClick={() => void deleteSelected()}>删除此概念</button>
+            <button className="danger-text" disabled={graph.pending > 0 || coreVocabulary.has(selected.id)} onClick={() => void deleteSelected()}>删除此概念</button>
           </div> : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
       </aside>}
     </div>

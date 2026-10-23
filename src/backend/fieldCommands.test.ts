@@ -5,7 +5,8 @@ import { createHttpAdapter } from "../adapter/api";
 import { createInternalDispatch } from "../adapter/internalDispatch";
 import type { Apply } from "../contracts/commands";
 import { registry } from "../contracts/rpc";
-import { C, newId, type Concept } from "../domain/concepts";
+import { newId, type Concept } from "../domain/concepts";
+import { C } from "../testing/starterFixtures";
 import { IndexedDbRepository } from "./indexeddb";
 import { buildDataRouter } from "./routes";
 

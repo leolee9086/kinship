@@ -25,9 +25,11 @@ React UI → DataAdapter → typed POST RPC → internal fetch → schema / doma
 
 UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、原子命令、命令状态、分页事件和媒体。请求与响应用同一套严格 JSON Schema 校验，类型从模式推导。资源有独立版本；可信编辑者、业务变化、幂等命令结果、恢复前值和事件在同一事务中保存。同一命令 ID 与内容可跨连接、重开数据库后重放；ID 换内容或版本过时会明确拒绝。个人焦点与导航单独持久化，不广播到共享事件。源码入口：[契约注册表](./src/contracts/rpc.ts)、[标准模式目录](./src/contracts/catalog.ts)、[事务执行](./src/backend/commandTransaction.ts)。
 
-数据库是主事实来源。当前站点使用 `kinship-workspaces` IndexedDB v1，分别保存概念、共享展示定义、个人视图状态、媒体、身份墓碑、命令结果和事件。首次创建时生成虚构演示概念与关系，随后以 UUID 持久保存。开发阶段不保留旧结构兼容、双写或隐式导入；不读取、不迁移、不删除 `kinship`、`kinship-concepts`、`kinship-workspace` 等旧开发库。不同域名、端口或浏览器配置使用各自的站点存储。
+数据库是主事实来源。当前站点使用 `kinship-workspaces` IndexedDB v1，分别保存概念、共享展示定义、个人视图状态、媒体、身份墓碑、命令结果和事件。新工作区从版本化 JSON [词汇模板](./src/templates/starter-vocabulary.json)、[演示模板](./src/templates/starter-demo.json)和[展示模板](./src/templates/starter-presentation.json)初始化，模板中的概念与槽位身份都是 UUID；随后只读取数据库中的已保存记录，更新模板不会重新填充已有工作区。开发阶段不保留旧结构兼容、双写或隐式导入；不读取、不迁移、不删除 `kinship`、`kinship-concepts`、`kinship-workspace` 等旧开发库。不同域名、端口或浏览器配置使用各自的站点存储。
 
 概念编辑按字段差异提交，参与槽按 UUID 添加、修改、移动和移除；视图/视角定义与个人状态也有独立操作，不提供整对象 replace 入口。同一事务内可组合多个字段与槽位变更，统一检查原始资源版本，每个资源只递增一次。相关入口：[概念与槽位操作](./src/contracts/conceptOperations.ts)、[设置操作](./src/contracts/settingsOperations.ts)、[最终图校验](./src/backend/commandPlan.ts)。
+
+概念集合文件的[严格校验和规范输出](./src/format/concepts.ts)接受显式提供的依赖，以 UUID 校验引用、重复身份和槽位。五个通用语义根由内核识别，其余人物、角色和领域分类都属于模板内容，未被引用的模板分类可以正常删除。赋色支持关系分类、第一/第二参与角色及前两角色对，按各自分类路径和深度计算；多继承按 UUID 选择确定路径。旧开发枚举 `parent-role` / `child-role` 已移除，不转换或回退为新轴。
 
 当前 bootstrap 仍读取完整概念快照，业务图编辑仍执行全图约束检查；分页目录、局部投影、生命周期与历史回滚界面、文件导入导出、正文编辑器、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件将作为显式导入导出目标，普通导入保留 UUID；现有展示模板编解码不代表完整图谱包已经实现。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
 

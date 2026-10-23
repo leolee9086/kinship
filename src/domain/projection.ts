@@ -30,6 +30,11 @@ function pathFrom(index: ConceptIndex, id: string, root: string): string[] {
   if (!candidates.length) throw new Error("颜色轴分类路径不完整");
   return [...pathFrom(index, candidates[0], root), id];
 }
+/** 自定义角色可以有自己的根；多继承按 UUID 选择确定路径，不寻找某个领域角色。 */
+function classificationPath(index: ConceptIndex, id: string): string[] {
+  const parent = [...(index.get(id).broader ?? [])].sort()[0];
+  return parent ? [...classificationPath(index, parent), id] : [id];
+}
 const fromHex = (hex: string): number => Number.parseInt(hex.slice(1), 16);
 function keyColor(key: string): number {
   let hash = 2166136261;
@@ -39,19 +44,19 @@ function keyColor(key: string): number {
 }
 export function relationColor(index: ConceptIndex, relation: Concept, settings: GraphSettings) {
   const typeId = [...relation.types].sort()[0];
-  const parent = relation.participants?.find(p => index.descends(p.role, C.parent));
-  const child = relation.participants?.find(p => index.descends(p.role, C.child));
+  const first = relation.participants?.[0], second = relation.participants?.[1];
   let key: string, label: string, declared: string | undefined;
-  if (settings.colorAxis !== "relation" && parent && child) {
+  if (settings.colorAxis !== "relation" && first && second) {
+    const roleAtDepth = (roleId: string) => {
+      const path = classificationPath(index, roleId);
+      return path[Math.min(settings.colorDepth, path.length - 1)];
+    };
     if (settings.colorAxis === "role-pair") {
-      const pp = pathFrom(index, parent.role, C.parent), cp = pathFrom(index, child.role, C.child);
-      const pr = pp[Math.min(settings.colorDepth, pp.length - 1)];
-      const cr = cp[Math.min(Math.max(0, settings.colorDepth - 1), cp.length - 1)];
-      key = `pair:${pr}:${cr}`; label = `${index.roleLabel(pr)}—${index.roleLabel(cr)}`;
+      const firstId = roleAtDepth(first.role), secondId = roleAtDepth(second.role);
+      key = `pair:${firstId}:${secondId}`; label = `${index.roleLabel(firstId)}—${index.roleLabel(secondId)}`;
     } else {
-      const p = settings.colorAxis === "parent-role" ? parent : child;
-      const path = pathFrom(index, p.role, settings.colorAxis === "parent-role" ? C.parent : C.child);
-      const id = path[Math.min(settings.colorDepth, path.length - 1)]; key = id; label = index.roleLabel(id);
+      const id = roleAtDepth(settings.colorAxis === "first-role" ? first.role : second.role);
+      key = id; label = index.roleLabel(id); declared = index.get(id).schema?.color;
     }
   } else {
     const path = pathFrom(index, typeId, index.descends(typeId, C.relation) ? C.relation : C.concept);
@@ -102,9 +107,11 @@ export function projectGraph(index: ConceptIndex, focus: string, settings: Graph
       const cm = forced || revealed.has(r.id) ? "main" : displayMode(index, entity, "concepts", settings.perspective);
       if (cm === "hidden") continue;
       if (cm === "related") { fold(r, anchor); continue; }
-      const rules = mine.map(a => relationRule(index, r, a.role, p.role, view, settings));
+      // 关系自身作为焦点时也使用保存的角色规则；由其余参与槽提供配对语境。
+      const anchors = mine.length ? mine : ps.filter(slot => slot.id !== p.id);
+      const rules = anchors.map(a => relationRule(index, r, a.role, p.role, view, settings));
       rules.sort((a, b) => b.priority - a.priority);
-      const rule = rules[0] ?? { region: p.role === C.source ? "left" as Region : "right" as Region, priority: 70 };
+      const rule = rules[0];
       if (hub && r.id !== focus) offer(r.id, depth, rule.region, rule.priority + (context ? 0 : 10000) - 1, anchor, emphasis, !context);
       offer(p.concept, depth, rule.region, rule.priority + (context ? 0 : 10000), anchor,
         cm === "dim" ? settings.dimOpacity : emphasis, !context && cm === "main");
