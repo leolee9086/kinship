@@ -18,11 +18,13 @@ import { ConceptEditor, type EditorMode } from "./ConceptEditor";
 import { ViewSettings } from "./ViewSettings";
 import { GraphPackageExport } from "./GraphPackageExport";
 import { GraphPackageImport } from "./GraphPackageImport";
+import { ConceptDeletion } from "./ConceptDeletion";
 import { ConceptLibraryList } from "./ConceptLibraryList";
 import { useConceptGraph } from "./useConceptGraph";
 import { useWorkspacePanels } from "./useWorkspacePanels";
 import "./app.css";
 import "./workspace.css";
+import "./deletion.css";
 
 type GraphState = ReturnType<typeof useConceptGraph>;
 interface AppProps { adapter: DataAdapter; projectControls?: (locked: boolean) => ReactNode }
@@ -46,6 +48,8 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
   const [help, setHelp] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const workspace = useRef<HTMLElement>(null);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 0.82 });
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
   const curveStyle: CurveStyle = settings.curve;
@@ -97,7 +101,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.closest("input,textarea,select,button,summary,[contenteditable=true],[role=dialog]")) return;
-      if (importing) return;
+      if (importing || deleting) return;
       if (event.key === "Escape") { setEditor(null); setHelp(false); setPanel(null); setLibrary(false); return; }
       if (editor || help) return;
       if (event.key === "/") { event.preventDefault(); setLibrary(true); requestAnimationFrame(() => search.current?.focus()); return; }
@@ -124,15 +128,16 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       ...(editor?.initial ? { initialConcepts: { [concept.id]: editor.initial } } : {}) });
     setInspected(concept.id); setEditor(null);
   };
-  const deleteSelected = async () => {
-    if (!selected) return;
-    try { await graph.mutate({ remove: [selected.id] }); setInspected(null); setPanel(null); } catch { /* 数据层已经显示具体的引用约束错误。 */ }
+  const closeDeleted = () => {
+    setDeleting(null); setInspected(null); setPanel(null);
+    // 删除入口自身会卸载，把焦点放回稳定工作区，方便继续键盘操作。
+    requestAnimationFrame(() => workspace.current?.focus());
   };
   const onViewport = useCallback((width: number, height: number) => setViewport({ width, height }), []);
   const relationCount = index.concepts.filter(c => !!c.participants).length;
 
-  return <main className="workspace">
-    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing)} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
+  return <main ref={workspace} tabIndex={-1} className="workspace">
+    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing || Boolean(deleting))} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
       onLibrary={() => setLibrary(value => !value)} onSettings={() => setPanel(value => value === "settings" ? null : "settings")}
       onImport={() => setImporting(true)} onHelp={() => setHelp(true)} />
     {graph.error && <div className="error-banner" role="alert"><span>{graph.error}</span><button onClick={graph.clearError} aria-label="关闭错误提示">×</button></div>}
@@ -182,10 +187,11 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
             {selected.properties && Object.entries(selected.properties).map(([key, value]) => <p className="property" key={key}><span>{key}</span><strong>{typeof value === "string" ? value : JSON.stringify(value)}</strong></p>)}
             <GraphPackageExport key={selected.id} adapter={adapter} conceptId={selected.id} disabled={graph.pending > 0} onError={graph.reportError} />
             <details><summary>概念 UUID</summary><code className="uuid">{selected.id}</code></details>
-            <button className="danger-text" disabled={graph.pending > 0 || coreVocabulary.has(selected.id)} onClick={() => void deleteSelected()}>删除此概念</button>
+            <button className="danger-text" disabled={graph.pending > 0 || coreVocabulary.has(selected.id)} onClick={() => setDeleting(selected.id)}>检查删除影响…</button>
           </div> : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
       </aside>}
     </div>
+    {deleting && <ConceptDeletion key={deleting} adapter={adapter} id={deleting} onDelete={graph.deleteConcept} onClose={() => setDeleting(null)} onDeleted={closeDeleted} />}
     {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
     {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}
     {help && <div className="modal-scrim" onClick={() => setHelp(false)}><section className="help-dialog" role="dialog" aria-modal="true" aria-label="键盘帮助" onClick={e => e.stopPropagation()}><button className="close" onClick={() => setHelp(false)}>关闭</button><span className="eyebrow">FIND YOUR FLOW</span><h2>用键盘探索概念</h2><p>方向键沿屏幕方位切换焦点；Backspace 返回上一焦点。</p><dl><dt>/</dt><dd>搜索概念</dd><dt>Enter</dt><dd>编辑焦点</dd><dt>N</dt><dd>新建概念</dd><dt>R</dt><dd>新建关系</dd><dt>?</dt><dd>显示帮助</dd><dt>Esc</dt><dd>关闭面板</dd></dl><p>拖动平移，滚轮或双指缩放。点击关系线检查关系概念。</p></section></div>}

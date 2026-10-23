@@ -9,6 +9,7 @@ import type { Dispatch, TransportResponse } from "./transport";
 import { verifyPackageResponse } from "./packageResponse";
 import { verifyImportFile, verifyImportPreview } from "./importResponse";
 import { verifyCommit } from "./commitResponse";
+import { verifyDeletePreview, verifyDeletion } from "./deletionResponse";
 
 export interface CallOptions { commandId?: string; file?: File; signal?: AbortSignal }
 export type CallResult<M extends Method> = M extends "mediaContent" ? Blob : Result<M>;
@@ -43,6 +44,10 @@ export class RpcClient {
       if (!envelope.ok && response.status !== ERROR_STATUS[envelope.error.code]) throw new Error("invalid error status");
       if (envelope.ok && commandId) verifyCommit(envelope.result, envelope.context.revision, commandId,
         name === "importGraph" ? parse(registry.importGraph.request, input).params : undefined);
+      if (envelope.ok && name === "previewDelete") verifyDeletePreview(parse(registry.previewDelete.result, envelope.result, "INTERNAL_ERROR"),
+        parse(registry.previewDelete.request, input).params.id, envelope.context);
+      if (envelope.ok && name === "deleteConcept") verifyDeletion(parse(registry.deleteConcept.result, envelope.result, "INTERNAL_ERROR"),
+        parse(registry.deleteConcept.request, input).params);
     } catch { fail(commandId ? "RESULT_UNKNOWN" : "INTERNAL_ERROR", "服务响应未通过协议校验", { requestId: input.requestId, ...(commandId ? { commandId } : {}) }, Boolean(commandId)); }
     if (!envelope.ok) throw new RpcError(envelope.error);
     if (name === "bootstrap") {

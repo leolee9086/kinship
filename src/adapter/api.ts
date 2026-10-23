@@ -22,6 +22,8 @@ export interface DataAdapter {
   previewImport(value: GraphPackage): Promise<ImportPreview>;
   previewImportFile(file: File): Promise<Result<"previewImportFile">>;
   importGraph(params: Request<"importGraph">["params"], options?: CallOptions): Promise<Commit>;
+  previewDelete(id: string): Promise<Result<"previewDelete">>;
+  deleteConcept(params: Request<"deleteConcept">["params"], options?: CallOptions): Promise<Commit>;
   execute(command: Apply, options?: CallOptions): Promise<Commit>;
   mutate(change: ConceptMutation, options?: MutationOptions): Promise<ConceptSnapshot>;
   saveSettings(settings: GraphSettings): Promise<GraphSettings>;
@@ -45,6 +47,9 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
   };
   return {
     load, execute,
+    previewDelete: async id => { await ready(); return client.call("previewDelete", { id }); },
+    deleteConcept: async (params, options) => { await ready(); const commit = await client.call("deleteConcept", params, options);
+      replica!.apply(commit); return commit; },
     exportGraph: async params => { await ready(); return client.call("exportGraph", params); },
     previewImport: async value => { await ready(); return client.call("previewImport", { package: value }); },
     previewImportFile: async file => { await ready(); return client.call("previewImportFile", {

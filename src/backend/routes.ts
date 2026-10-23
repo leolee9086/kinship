@@ -46,6 +46,9 @@ export function buildDataRouter(repository: GraphRepository) {
   bind("previewImport", async input => { const reply = await repository.previewImport(input); return { result: reply.value, ...reply.context }; });
   bind("importGraph", async input => { const result = await repository.importGraph(input);
     return { result, workspaceId: input.workspaceId, revision: result.revision }; });
+  bind("previewDelete", async input => { const reply = await repository.previewDelete(input); return { result: reply.value, ...reply.context }; });
+  bind("deleteConcept", async input => { const result = await repository.deleteConcept(input);
+    return { result, workspaceId: input.workspaceId, revision: result.revision }; });
   bind("apply", async input => { const result = await repository.apply(input);
     return { result, workspaceId: input.workspaceId, revision: result.revision }; });
   bind("commandStatus", async input => { const reply = await repository.commandStatus(input); return { result: reply.value, ...reply.context }; });

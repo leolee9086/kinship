@@ -7,6 +7,8 @@ export interface GraphRepository {
   readonly role: Role;
   bootstrap(): Promise<Bootstrap>;
   apply(input: Request<"apply">): Promise<Commit>;
+  previewDelete(input: Request<"previewDelete">): Promise<QueryValue<Result<"previewDelete">>>;
+  deleteConcept(input: Request<"deleteConcept">): Promise<Commit>;
   previewImport(input: Request<"previewImport">): Promise<QueryValue<Result<"previewImport">>>;
   importGraph(input: Request<"importGraph">): Promise<Commit>;
   upload(input: Request<"upload">, file: Blob): Promise<Commit>;

@@ -1,0 +1,19 @@
+/* 生命周期模态框独立滚动；引用原文折叠，确认按钮保持可见且便于触屏点击。 */
+.deletion-dialog { width: min(620px, 100%); }
+.deletion-dialog .panel-header { flex-shrink: 0; padding: 18px 24px; }
+.deletion-dialog .panel-header button { min-width: 44px; min-height: 44px; }
+.deletion-body { overflow-y: auto; padding: 18px 24px 0; font-size: 13px; line-height: 1.65; }
+.deletion-body h3 { margin: 0 0 12px; font-size: 20px; overflow-wrap: anywhere; }
+.deletion-body code { display: block; font-size: 11px; white-space: normal; overflow-wrap: anywhere; }
+.deletion-body details { margin: 8px 0; }
+.deletion-body summary { cursor: pointer; color: #607761; }
+.deletion-references { margin: 16px 0; padding-left: 24px; }
+.deletion-references li { border-bottom: 1px solid var(--line); padding: 10px 0 8px 6px; }
+.deletion-references li > strong, .deletion-references li > span { display: block; overflow-wrap: anywhere; }
+.deletion-references li > span { color: #607761; font-size: 12px; }
+.deletion-pages { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.deletion-body .deletion-actions { position: sticky; bottom: 0; background: var(--paper); padding: 14px 0; flex-wrap: wrap; }
+.deletion-actions button, .deletion-pages button { min-height: 44px; }
+.deletion-actions .danger-text { margin: 0; padding: 8px 14px; border: 1px solid #bf897a; border-radius: 8px; font-size: 12px; color: #9b4936; }
+.deletion-actions button:focus-visible, .deletion-body summary:focus-visible { outline: 2px solid #407768; outline-offset: 2px; }
+@media (max-width: 760px) { .deletion-body { padding: 16px 17px 0; } .deletion-dialog .panel-header { padding: 16px 17px; } }

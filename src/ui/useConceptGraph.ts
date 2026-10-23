@@ -4,6 +4,7 @@ import type { DataAdapter, MutationOptions } from "../adapter/api";
 import type { ConceptMutation, ConceptSnapshot, GraphSettings } from "../domain/concepts";
 import type { Request } from "../contracts/rpc";
 import type { CallOptions } from "../adapter/rpcClient";
+import type { Commit } from "../contracts/commands";
 
 export function useConceptGraph(adapter: DataAdapter) {
   const [snapshot, setSnapshot] = useState<ConceptSnapshot | null>(null);
@@ -49,17 +50,21 @@ export function useConceptGraph(adapter: DataAdapter) {
     } catch (err) { setError(String(err)); throw err; }
     finally { setPending(n => n - 1); }
   }, [adapter]);
-  const importGraph = useCallback(async (params: Request<"importGraph">["params"], options: CallOptions) => {
+  const commitAndReload = useCallback(async (work: () => Promise<Commit>, label: string) => {
     setPending(n => n + 1);
     try {
       await saving.current;
-      const commit = await adapter.importGraph(params, options);
+      const commit = await work();
       try {
         const data = await adapter.load();
         settings.current = data.settings; persisted.current = data.settings; setSnapshot(data);
-      } catch { setError("导入已提交，页面暂时未能刷新；重新打开工作区可读取已保存内容。"); }
+      } catch { setError(`${label}已提交，页面暂时未能刷新；重新打开工作区可读取已保存内容。`); }
       return commit;
     } finally { setPending(n => n - 1); }
   }, [adapter]);
-  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate, importGraph };
+  const importGraph = useCallback((params: Request<"importGraph">["params"], options: CallOptions) =>
+    commitAndReload(() => adapter.importGraph(params, options), "导入"), [adapter, commitAndReload]);
+  const deleteConcept = useCallback((params: Request<"deleteConcept">["params"], options: CallOptions) =>
+    commitAndReload(() => adapter.deleteConcept(params, options), "删除"), [adapter, commitAndReload]);
+  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate, importGraph, deleteConcept };
 }

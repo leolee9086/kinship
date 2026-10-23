@@ -7,6 +7,8 @@ import { strictObject, UUIDSchema, VersionSchema } from "./primitives";
 import { ExportGraphParamsSchema, GraphPackageSchema } from "./graphPackage";
 import { ImportFileParamsSchema, ImportFileResultSchema, ImportGraphParamsSchema, ImportPreviewParamsSchema, ImportPreviewSchema } from "./importPreview";
 
+import { DeleteParamsSchema, DeletePreviewSchema } from "./deletion";
+
 const base = { protocol: Type.Literal("kinship.rpc"), version: Type.Literal(1), requestId: UUIDSchema };
 const scoped = { ...base, workspaceId: UUIDSchema };
 const write = { ...scoped, commandId: UUIDSchema };
@@ -29,6 +31,10 @@ export const registry = {
     request: strictObject({ ...scoped, params: ImportPreviewParamsSchema }), result: ImportPreviewSchema },
   importGraph: { path: "/rpc/v1/graph/import/apply", kind: "command", role: "collaborator",
     request: strictObject({ ...write, params: ImportGraphParamsSchema }), result: CommitSchema },
+  previewDelete: { path: "/rpc/v1/concepts/delete/preview", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: strictObject({ id: UUIDSchema }) }), result: DeletePreviewSchema },
+  deleteConcept: { path: "/rpc/v1/concepts/delete/apply", kind: "command", role: "collaborator",
+    request: strictObject({ ...write, params: DeleteParamsSchema }), result: CommitSchema },
   apply: { path: "/rpc/v1/commands/apply", kind: "command", role: "guest",
     request: strictObject({ ...write, params: ApplySchema }), result: CommitSchema },
   commandStatus: { path: "/rpc/v1/commands/status", kind: "query", role: "guest",

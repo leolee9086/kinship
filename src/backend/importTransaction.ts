@@ -7,18 +7,9 @@ import { importCommands } from "../domain/importCommands";
 import { readGraphPackage } from "../format/graphPackage";
 import { executeCommand } from "./commandTransaction";
 import { readImportTarget } from "./importQuery";
-import { scopedQuery } from "./workspaceQueries";
-import { STORES as S, type SavedCommand } from "./workspaceDb";
-
-async function readReplay(db: IDBDatabase, input: Request<"importGraph">, fingerprint: string): Promise<Commit | undefined> {
-  const reply = await scopedQuery<SavedCommand | undefined>(db, input.workspaceId, [S.commands], (tx, state, done) => {
-    const request = tx.objectStore(S.commands).get([state.actorId, input.commandId]);
-    request.onsuccess = () => done(request.result as SavedCommand | undefined);
-  });
-  if (!reply.value) return undefined;
-  if (reply.value.fingerprint !== fingerprint) fail("IDEMPOTENCY_KEY_REUSED", "同一命令 ID 不能用于另一份导入内容");
-  return { ...reply.value.commit, replayed: true };
-}
+import { findCommittedCommand } from "./commandReplay";
+const readReplay = (db: IDBDatabase, input: Request<"importGraph">, fingerprint: string) =>
+  findCommittedCommand(db, input.workspaceId, input.commandId, fingerprint);
 
 export async function executeImport(db: IDBDatabase, input: Request<"importGraph">, role: Role, fingerprint: string): Promise<Commit> {
   if (role === "guest") fail("FORBIDDEN", "当前空间角色不能导入共享内容");

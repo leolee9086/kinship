@@ -13,7 +13,10 @@ import * as queries from "./workspaceQueries";
 import { queryImportPreview } from "./importQuery";
 import { executeImport } from "./importTransaction";
 
-async function fingerprint(method: Method, input: Request<"apply"> | Request<"upload"> | Request<"importGraph">): Promise<string> {
+import { queryDeletion } from "./deletionQuery";
+import { executeDeletion } from "./deletionTransaction";
+
+async function fingerprint(method: Method, input: Request<"apply"> | Request<"upload"> | Request<"importGraph"> | Request<"deleteConcept">): Promise<string> {
   return sha256(canonicalJSON({ version: input.version, operation: registry[method].path, workspaceId: input.workspaceId, params: input.params }));
 }
 export class IndexedDbRepository implements GraphRepository {
@@ -29,6 +32,14 @@ export class IndexedDbRepository implements GraphRepository {
   async importGraph(source: Request<"importGraph">): Promise<Commit> {
     const input = parse(registry.importGraph.request, source);
     return executeImport(await this.opening, input, this.role, await fingerprint("importGraph", input));
+  }
+  async previewDelete(source: Request<"previewDelete">) {
+    const input = parse(registry.previewDelete.request, source);
+    return queryDeletion(await this.opening, input.workspaceId, input.params.id);
+  }
+  async deleteConcept(source: Request<"deleteConcept">): Promise<Commit> {
+    const input = parse(registry.deleteConcept.request, source);
+    return executeDeletion(await this.opening, input, this.role, await fingerprint("deleteConcept", input));
   }
   async apply(source: Request<"apply">): Promise<Commit> {
     const input = parse(registry.apply.request, source);

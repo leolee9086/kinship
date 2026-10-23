@@ -7,11 +7,12 @@ import { newId, type StoredMedia } from "../domain/concepts";
 import { planCommand, type PlanInput } from "./commandPlan";
 import { checkVersion } from "./versions";
 import { readPlanInput } from "./planInput";
+import { guardDeletedReferences } from "./deletionGuard";
 import { STORES as S, WRITE_STORES, type HistoryEntry, type IdentityRecord,
   type SavedCommand, type WorkspaceState } from "./workspaceDb";
 
 export interface CommandExecution { workspaceId: string; commandId: string; fingerprint: string; params: Apply; role: Role;
-  attachment?: StoredMedia; expectedRevision?: number; importSource?: Commit["importSource"] }
+  attachment?: StoredMedia; expectedRevision?: number; expectedViewStateVersion?: number; importSource?: Commit["importSource"] }
 export function executeCommand(db: IDBDatabase, input: CommandExecution): Promise<Commit> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(WRITE_STORES, "readwrite", { durability: "strict" });
@@ -32,7 +33,7 @@ export function executeCommand(db: IDBDatabase, input: CommandExecution): Promis
               result = { ...saved.commit, replayed: true }; return;
             }
             if (input.expectedRevision !== undefined && state.revision !== input.expectedRevision)
-              fail("VERSION_CONFLICT", "导入预览已过期，请重新核对目标库", { expected: input.expectedRevision, actual: state.revision });
+              fail("VERSION_CONFLICT", "操作预览已过期，请重新核对工作区", { expected: input.expectedRevision, actual: state.revision });
             prepare(tx, state, input, commit => { result = commit; }, abort);
           } catch (error) { abort(error); }
         };
@@ -47,7 +48,10 @@ export function executeCommand(db: IDBDatabase, input: CommandExecution): Promis
 function prepare(tx: IDBTransaction, state: WorkspaceState, input: CommandExecution, done: (commit: Commit) => void,
   abort: (error: unknown) => void): void {
   readPlanInput(tx, state, input.params, data => {
-    try { prepareChanges(tx, state, input, data, done, abort); } catch (error) { abort(error); }
+    try {
+      if (input.expectedViewStateVersion !== undefined) checkVersion("viewState", input.expectedViewStateVersion, data.viewState.version);
+      prepareChanges(tx, state, input, data, done, abort);
+    } catch (error) { abort(error); }
   }, abort);
 }
 
@@ -84,7 +88,9 @@ function prepareChanges(tx: IDBTransaction, state: WorkspaceState, input: Comman
 function checkBackground(tx: IDBTransaction, state: WorkspaceState, input: CommandExecution, data: PlanInput,
   changes: Commit["changes"], before: HistoryEntry["before"], done: (commit: Commit) => void, abort: (error: unknown) => void): void {
   const mediaId = (changes.viewState ?? data.viewState).data.background.mediaId;
-  const publish = () => { try { done(publishPlan(tx, state, input, changes, before)); } catch (error) { abort(error); } };
+  const publish = () => guardDeletedReferences(tx, state, data, changes, () => {
+    try { done(publishPlan(tx, state, input, changes, before)); } catch (error) { abort(error); }
+  }, abort);
   if (!mediaId) { publish(); return; }
   const check = tx.objectStore(S.media).get(mediaId);
   check.onsuccess = () => { if (!check.result) abort(new RpcError({ code: "REFERENCE_CONFLICT", message: "背景引用的媒体不存在", retryable: false })); else publish(); };
