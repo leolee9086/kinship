@@ -1,5 +1,7 @@
 /** 统一编辑器：类型与角色也作为概念编辑，关系可有任意多个带 UUID 的参与槽。 */
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useDialogFocus } from "./useDialogFocus";
+import { useFormKeyboard } from "./useFormKeyboard";
 import { C, newId, type Concept, type Participation } from "../domain/concepts";
 import { ConceptIndex } from "../domain/conceptIndex";
 export type EditorMode = "concept" | "relation" | "type" | "role";
@@ -19,13 +21,27 @@ export function ConceptEditor({ index, initial, mode, focus, busy, onSave, onClo
   const [participants, setParticipants] = useState<Participation[]>(() => initial?.participants
     ? structuredClone(initial.participants) : mode === "relation"
       ? [{ id: newId(), role: C.participant, concept: focus ?? "" }, { id: newId(), role: C.participant, concept: "" }] : []);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null), [saving, setSaving] = useState(false);
+  const running = useRef(false), error = useRef<HTMLParagraphElement>(null), locked = busy || saving;
+  const close = () => { if (!locked) onClose(); };
+  const dialog = useDialogFocus(close), keyboard = useFormKeyboard(locked);
   const types = index.concepts.filter(c => index.isType(c));
   const roles = index.concepts.filter(c => index.isRole(c));
   const entities = index.concepts.filter(c => !index.isType(c) && !index.isRole(c));
   const changeSlot = (slot: string, patch: Partial<Participation>) => setParticipants(ps => ps.map(p => p.id === slot ? { ...p, ...patch } : p));
+  const addSlot = () => {
+    const slotId = newId(); setParticipants(ps => [...ps, { id: slotId, role: C.participant, concept: "" }]);
+    requestAnimationFrame(() => dialog.current?.querySelector<HTMLElement>(`[data-slot-id="${slotId}"] select`)?.focus());
+  };
+  const removeSlot = (slotId: string) => {
+    const at = participants.findIndex(p => p.id === slotId), next = participants[at + 1] ?? participants[at - 1];
+    setParticipants(ps => ps.filter(p => p.id !== slotId));
+    requestAnimationFrame(() => dialog.current?.querySelector<HTMLElement>(next ? `[data-slot-id="${next.id}"] select` : "[data-add-participant]")?.focus());
+  };
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setFormError(null);
+    if (running.current) return;
+    running.current = true; setSaving(true);
     try {
       const parsed = JSON.parse(properties);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("属性需要 JSON 对象");
@@ -38,12 +54,17 @@ export function ConceptEditor({ index, initial, mode, focus, busy, onSave, onClo
       }
       if (mode === "relation" || initial?.participants) concept.participants = participants;
       await onSave(concept);
-    } catch (error) { setFormError(error instanceof Error ? error.message : String(error)); }
+    } catch (cause) {
+      setFormError(cause instanceof Error ? cause.message : String(cause));
+      requestAnimationFrame(() => error.current?.focus());
+    } finally { running.current = false; setSaving(false); }
   };
-  return <div className="modal-scrim" onClick={onClose}>
-    <section className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-title" onClick={e => e.stopPropagation()}>
-      <header><div><span className="eyebrow">CONCEPT STUDIO</span><h2 id="editor-title">{initial ? "编辑概念" : mode === "relation" ? "创建关系概念" : mode === "type" ? "创建类型概念" : mode === "role" ? "创建角色概念" : "创建概念"}</h2></div><button aria-label="关闭编辑器" onClick={onClose}>×</button></header>
-      <form onSubmit={e => void submit(e)}>
+  return <div className="modal-scrim" onClick={close}>
+    <section ref={dialog} className="editor-dialog" role="dialog" aria-modal="true" aria-labelledby="editor-title" aria-describedby="editor-keys" aria-busy={locked} onClick={e => e.stopPropagation()}>
+      <header><div><span className="eyebrow">CONCEPT STUDIO</span><h2 id="editor-title">{initial ? "编辑概念" : mode === "relation" ? "创建关系概念" : mode === "type" ? "创建类型概念" : mode === "role" ? "创建角色概念" : "创建概念"}</h2></div><button disabled={locked} aria-label="关闭编辑器" onClick={close}>×</button></header>
+      <form {...keyboard} onSubmit={e => void submit(e)}>
+        <p id="editor-keys" className="editor-key-hint">Tab / Shift+Tab 切换 · 单行 Enter 下一项 · Ctrl / ⌘+Enter 保存 · Esc 关闭</p>
+        <fieldset className="concept-editor-fields" disabled={locked} aria-label="概念字段">
         <label>名称<input autoFocus required value={label} onChange={e => setLabel(e.target.value)} placeholder="给这个概念一个名字" /></label>
         <label>类型<select value={typeId} onChange={e => setType(e.target.value)}>
           {types.filter(t => mode !== "relation" || index.descends(t.id, C.relation)).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
@@ -54,18 +75,19 @@ export function ConceptEditor({ index, initial, mode, focus, busy, onSave, onClo
           <option value="">无上级</option>{(mode === "role" ? roles : types).filter(t => t.id !== id).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
         </select></label>{mode === "type" && <label>默认颜色<input type="color" value={color} onChange={e => setColor(e.target.value)} /></label>}</div>}
         {(mode === "relation" || initial?.participants) && <fieldset><legend>参与槽 · 两人或多人</legend>
-          {participants.map((p, i) => <div className="participant-row" key={p.id}>
+          {participants.map((p, i) => <div className="participant-row" key={p.id} data-slot-id={p.id}>
             <label>角色 {i + 1}<select value={p.role} onChange={e => changeSlot(p.id, { role: e.target.value })}>{roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}</select></label>
             <label>概念 {i + 1}<select required value={p.concept} onChange={e => changeSlot(p.id, { concept: e.target.value })}><option value="">选择概念</option>
               <optgroup label="实例概念">{entities.filter(c => c.id !== id).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</optgroup>
               <optgroup label="类型与角色">{index.concepts.filter(c => index.isType(c) || index.isRole(c)).filter(c => c.id !== id).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}</optgroup>
-            </select></label><button type="button" aria-label={`移除参与槽 ${i + 1}`} onClick={() => setParticipants(ps => ps.filter(s => s.id !== p.id))}>−</button>
+            </select></label><button type="button" aria-label={`移除参与槽 ${i + 1}`} onClick={() => removeSlot(p.id)}>−</button>
           </div>)}
-          <button type="button" onClick={() => setParticipants(ps => [...ps, { id: newId(), role: C.participant, concept: "" }])}>＋ 添加参与槽</button>
+          <button type="button" data-add-participant onClick={addSlot}>＋ 添加参与槽</button>
         </fieldset>}
         <details><summary>属性与身份</summary><code className="uuid">{id}</code><label>属性 JSON<textarea rows={4} value={properties} onChange={e => setProperties(e.target.value)} spellCheck={false} /></label></details>
-        {formError && <p role="alert" className="form-error">{formError}</p>}
-        <footer><button type="button" onClick={onClose}>取消</button><button className="primary" disabled={busy}>{busy ? "正在保存…" : "保存概念"}</button></footer>
+        </fieldset>
+        {formError && <p ref={error} tabIndex={-1} role="alert" className="form-error">{formError}</p>}
+        <footer><button type="button" disabled={locked} onClick={close}>取消</button><button type="submit" className="primary" disabled={locked} aria-keyshortcuts="Control+Enter Meta+Enter">{locked ? "正在保存…" : "保存概念"}</button></footer>
       </form>
     </section>
   </div>;

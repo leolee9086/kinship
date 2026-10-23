@@ -114,8 +114,8 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       if (editor || help) return;
       if (event.key === "/") { event.preventDefault(); setLibrary(true); requestAnimationFrame(() => search.current?.focus()); return; }
       if (event.key === "?") { setHelp(true); return; }
-      if (event.key.toLowerCase() === "n") { setEditor({ mode: "concept" }); return; }
-      if (event.key.toLowerCase() === "r") { setEditor({ mode: "relation" }); return; }
+      if (event.key.toLowerCase() === "n") { event.preventDefault(); setEditor({ mode: "concept" }); return; }
+      if (event.key.toLowerCase() === "r") { event.preventDefault(); setEditor({ mode: "relation" }); return; }
       if (event.key === "Enter" && focus) { event.preventDefault(); openEditor(index.get(focus)); return; }
       if (event.key === "Backspace") { event.preventDefault(); const id = history.current.pop(); if (id && index.byId.has(id)) { graph.changeSettings({ focusId: id }); setInspected(id); recenter(); } return; }
       const vector = ({ ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] } as Record<string, number[]>)[event.key];
