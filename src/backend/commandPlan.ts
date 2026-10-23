@@ -11,6 +11,7 @@ import { validatePresentationReferences } from "../domain/presentationValidation
 import type { IdentityRecord } from "./workspaceDb";
 import { planConcept } from "./planConcept";
 import { planSettingsBatch } from "./planSettings";
+import { guardBodyIdentities } from "./bodyIdentity";
 
 export interface PlanInput {
   concepts: ConceptRecord[]; identities: IdentityRecord[]; presentation: PresentationRecord; viewState: ViewStateRecord;
@@ -57,5 +58,5 @@ export function planCommand(input: PlanInput, command: Apply): CommandPlan {
   const ids = new Set(concepts.map(c => c.id));
   if (settings.focusId && !ids.has(settings.focusId)) fail("REFERENCE_CONFLICT", "当前焦点即将被删除，请在同一命令中选择新的焦点", { id: settings.focusId });
   if (settings.expandedRelations.some(id => !ids.has(id))) fail("REFERENCE_CONFLICT", "展开列表引用了不存在的关系");
-  return { changes, before };
+  const plan = { changes, before }; guardBodyIdentities(plan, identities, media); return plan;
 }

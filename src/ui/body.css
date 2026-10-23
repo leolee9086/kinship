@@ -1,0 +1,17 @@
+.editor-dialog.body-dialog { width: min(1000px, 100%); height: min(840px, 94dvh); }
+.body-toolbar { display: flex; flex-wrap: wrap; gap: 5px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.body-toolbar button { font-size: 11px; padding: 6px 9px; }
+.body-content { min-height: 0; flex: 1; overflow: auto; padding: 24px 36px; overscroll-behavior: contain; }
+.body-content .ProseMirror { min-height: 200px; font-size: 16px; line-height: 1.85; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
+.body-content .ProseMirror:focus { outline: none; }
+.body-content .ProseMirror:focus-visible { outline: 2px solid #81ae9b; outline-offset: 12px; border-radius: 3px; }
+.body-content p { margin: 0 0 1em; }
+.body-content h2 { font-size: 25px; margin: 1em 0 .5em; }
+.body-content blockquote { margin: 1em 0; border-left: 3px solid #8fae9b; padding-left: 20px; color: #647867; }
+.body-content pre { overflow: auto; white-space: pre-wrap; background: #eef2e9; padding: 14px; border-radius: 7px; font-size: 13px; }
+.body-content code { font-family: Consolas, monospace; background: #eef2e9; border-radius: 3px; }
+.body-content a { color: #356d60; text-decoration: underline; }
+.body-dialog > footer { display: block; padding: 12px 24px; }
+.body-dialog > footer p { font-size: 11px; margin: 0 0 10px; }
+.body-dialog > footer > div { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 760px) { .body-content { padding: 20px; } .body-toolbar { padding: 10px; } .body-dialog > footer { padding: 12px; } }

@@ -8,6 +8,7 @@
 
 - 顶栏可切换、新建和重命名项目；各项目的概念、设置、媒体和历史独立，重新打开时恢复上次项目与焦点。
 - 概念编辑弹窗支持 Tab / Shift+Tab 循环导航；单行 Enter 前往下一项，说明与 JSON 编辑保留换行，选择框和折叠项使用原生键盘操作。Ctrl / ⌘+Enter 保存，Esc 关闭后回到入口；中文输入法组合期间不触发这些快捷键，保存中锁定表单。
+- 概念详情的“正文”已接通版本化保存：段落、标题、引用、代码、分隔线，以及加粗、斜体、删除线、行内代码和软换行；支持拆块、合并、撤销/重做、Ctrl / ⌘+Enter 保存、关闭与重开。块有稳定 UUID，正文保存与历史、显式图谱包一起走数据协议。当前是编辑器接入切片，完整 Protyle / BlockSuite 能力仍按矩阵推进。
 - 全局操作集中在顶栏，导入、编辑历史与帮助位于“更多”；画布只保留视角、焦点和缩放，“展示”侧栏按显示、布局、背景分页。
 - 关系拥有带 UUID 的参与槽，每个槽引用角色概念和参与概念；支持多人关系、关系参与另一关系，同一对概念可有多条独立关系。
 - 二元关系可以选中为线、展开成节点或直接聚焦；多人关系保留枢纽，展开和压缩不创建新事实。
@@ -40,11 +41,11 @@ UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、�
 
 概念集合文件的[严格校验和规范输出](./src/format/concepts.ts)接受显式提供的依赖，以 UUID 校验引用、重复身份和槽位。五个通用语义根由内核识别，其余人物、角色和领域分类都属于模板内容，未被引用的模板分类可以正常删除。赋色支持关系分类、第一/第二参与角色及前两角色对，按各自分类路径和深度计算；多继承按 UUID 选择确定路径。旧开发枚举 `parent-role` / `child-role` 已移除，不转换或回退为新轴。
 
-概念详情可**预览并下载局部 JSON 图谱包**：选当前概念/关系作为入口，带必要定义，选择补齐参与对象或保留外部 UUID 引用。完整关系的全部参与槽原样保留，嵌套关系按出向引用补齐，不扩展参与者的其他关系。`entrypoints`、`selected`、`dependencies`、`externals`、来源修订和覆盖声明均明确，逐记录 SHA-256 摘要在客户端再次校验。默认上限 1000 条概念、1 MiB，超预算明确报错；仅导出概念与关系，正文、媒体、展示和历史明确未包含。入口是 `DataAdapter.exportGraph → POST /rpc/v1/graph/export`，不会在 UI 中直接读取数据库。契约见[图谱包模式](./src/contracts/graphPackage.ts)，闭包规则见[局部选择](./src/domain/packageSelection.ts)。
+概念详情可**预览并下载局部 JSON 图谱包**：选当前概念/关系作为入口，带必要定义，选择补齐参与对象或保留外部 UUID 引用。完整关系的全部参与槽原样保留，嵌套关系按出向引用补齐，不扩展参与者的其他关系。`entrypoints`、`selected`、`dependencies`、`externals`、来源修订和覆盖声明均明确，逐记录 SHA-256 摘要在客户端再次校验。默认上限 1000 条概念、1 MiB，超预算明确报错；图谱包 spec 2 包含概念、关系及其完整正文，覆盖声明为 `documents: "concept-bodies"`；媒体、展示和历史明确未包含。旧 spec 1 不隐式转换。入口是 `DataAdapter.exportGraph → POST /rpc/v1/graph/export`，不会在 UI 中直接读取数据库。契约见[图谱包模式](./src/contracts/graphPackage.ts)，闭包规则见[局部选择](./src/domain/packageSelection.ts)。
 
 顶栏 **更多 → 导入图谱包** 可上传最多 1 MiB 的 JSON 图谱包。文件通过 `DataAdapter → multipart POST /rpc/v1/graph/import/file` 交给后端检查字节摘要、UTF-8 和文件契约；UI 不自行解析文件。预览按 UUID 区分新增、相同、内容冲突和身份不可用，冲突可展开比较字段，再逐项保留目标或采用包内完整内容。缺失的外部 UUID、身份墓碑和槽位碰撞阻止提交；外部对象内容变化须明确接受目标版本，不按名称猜匹配。可通过 `POST /rpc/v1/graph/import/preview` 重新核对。
 
-确认导入经 `POST /rpc/v1/graph/import/apply`，在同一严格事务保存事实、资源版本、编辑者、前值、来源包身份/摘要/修订和幂等结果。预览后的共享写会使整个导入明确过期；最多 128 个原子操作，超额报错，不分批截断。完整相同的导入不递增共享修订。来源版本不充当目标版本；重开数据库或并发重放同一命令不会重复创建记录。提交结果不明时表单保留原命令与内容供重试；未包含的对象、正文、媒体、展示和历史不会删除。入口见[导入契约](./src/contracts/importPreview.ts)、[差异规划](./src/domain/importCommands.ts)、[导入事务](./src/backend/importTransaction.ts)。
+确认导入经 `POST /rpc/v1/graph/import/apply`，在同一严格事务保存事实、资源版本、编辑者、前值、来源包身份/摘要/修订和幂等结果。预览后的共享写会使整个导入明确过期；最多 128 个原子操作，超额报错，不分批截断。完整相同的导入不递增共享修订。来源版本不充当目标版本；重开数据库或并发重放同一命令不会重复创建记录。提交结果不明时表单保留原命令与内容供重试；未包含的对象、媒体、展示和历史不会删除；明确选择采用包内概念时，也采用其完整正文（包括正文缺省），冲突对比显示正文块树。入口见[导入契约](./src/contracts/importPreview.ts)、[差异规划](./src/domain/importCommands.ts)、[导入事务](./src/backend/importTransaction.ts)。
 
 删除通过 `DataAdapter.previewDelete → POST /rpc/v1/concepts/delete/preview` 只读核对类型、上级、参与槽、角色数量约束、所有视图/视角和已保存导航。返回完整清单最多 2000 项、1 MiB，超额明确失败；界面每页显示 50 项。`POST /rpc/v1/concepts/delete/apply` 要求预览时的空间修订、概念版本和当前人的状态版本；自己的焦点/展开项可在同一事务清理，其他引用须先处理。底层原子删除也检查全部已保存状态，不允许绕过。只移除目标当前记录，历史前值与墓碑保留；错误目标/版本的回包视为结果不明，重试保持原命令。当前尚未提供删除后的历史恢复界面。契约见[删除模式](./src/contracts/deletion.ts)，引用规则见[删除引用](./src/domain/deletionReferences.ts)，执行见[删除事务](./src/backend/deletionTransaction.ts)。
 
@@ -52,9 +53,11 @@ UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、�
 
 历史读取经 `DataAdapter.historyList → POST /rpc/v1/history/list`（倒序1–50条、上界修订与工作区作用域游标）和 `DataAdapter.historyConcept → POST /rpc/v1/history/concept`（事件UUID+概念UUID）。前后值来自追加归档；后续改名或删除不改变历史。每次响应最多1MiB，超预算明确报错，可调低条数；不静默截断。适配器再次核对完整连续修订、目标身份、版本、分页游标与详情对应事件。翻页返回仍保持原上界，显式“读取最新记录”才纳入后续提交。契约见[历史模式](./src/contracts/history.ts)，存储读取见[历史查询](./src/backend/historyQuery.ts)，界面见[历史审阅](./src/ui/HistoryReview.tsx)。目前展示概念的前后值，共享展示和媒体显示变更统计；未开放私人导航历史。
 
-当前 bootstrap、导出、导入预览和删除核对仍读取完整概念快照，业务图编辑仍执行全图约束检查；后端分页目录、后端局部投影、历史恢复预览/执行、SQLite 容器、正文编辑器、Kramdown 编解码、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件作为显式交换目标；目前仅完成概念与关系的 JSON 局部往返，不代表正文、媒体、展示或历史的备份恢复。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
+正文采用[中立块树契约](./src/contracts/document.ts)，与 ProseMirror 之间通过[独立编解码](./src/editor/documentCodec.ts)转换；键盘、工具栏和输入事务从第一条交互就经过 [CaliburRouter 状态空间分派](./src/editor/commandRouter.ts)。保存只写目标概念的 `body` 字段，使用概念资源版本；历史、幂等结果和块身份墓碑与正文原子落库。拆块和复制产生新 UUID，格式转换与撤销保留身份；块 UUID 归属原概念，删块后不能转给另一资源。保存结果不明时锁住草稿与原命令重试，版本冲突保留可复制的草稿。
 
-下一切片实现带版本及引用影响预览的新命令历史恢复；完成当前阶段后进入跨端统一命令入口。正文阶段从第一条编辑命令使用 caliburRouter，以状态空间分区派发；目标覆盖思源 Protyle 与 BlockSuite 的全部块类型和编辑操作，逐项记录参照版本和实际验收，保留编辑器无关的稳定块 UUID。
+当前 bootstrap、导出、导入预览和删除核对仍读取完整概念快照，业务图编辑仍执行全图约束检查。正文当前按概念整体版本保存，尚无块级并发或后台自动保存；大文档分页、全部 Protyle / BlockSuite 块与操作、语义引用、Kramdown、SQLite 容器、历史恢复界面、WebSocket 和 Supabase 仍未交付。现有 JSON 图谱包可往返当前正文；媒体、展示和完整历史仍不属于该包的覆盖范围。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
+
+下一切片继续扩展正文能力矩阵（列表、任务及嵌套编辑等），逐项记录参照版本和实际操作验收；同时保留已记录的历史恢复分支与元关系属性设计恢复点。完整编辑目标仍为思源 Protyle 与 BlockSuite 的全部块类型和操作，跨端统一命令、元关系属性、历史恢复和协作等保持待办。
 
 项目设计和开发记录在思源维护：[编辑器、语义内链与原子 RPC 方案](siyuan://blocks/20261023012229-e9zn1zp)、[RPC 契约与事务协议](siyuan://blocks/20261023032258-aa34xhy)、[JSON/Kramdown 与局部图谱包设计](siyuan://blocks/20261023025308-dv16evk)、[开发进度和验收记录](siyuan://blocks/20261023011959-53mrjex)。
 

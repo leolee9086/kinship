@@ -1,6 +1,7 @@
 /** 概念与参与槽的结构契约，领域继承/引用/角色约束另由领域校验负责。 */
 import { Type } from "@sinclair/typebox";
 import { AttributesSchema, LabelSchema, strictObject, UUIDSchema } from "./primitives";
+import { DocumentBodySchema } from "./document";
 
 export const ParticipationSchema = strictObject({ id: UUIDSchema, role: UUIDSchema, concept: UUIDSchema });
 export const RoleConstraintSchema = strictObject({ role: UUIDSchema,
@@ -21,4 +22,5 @@ export const ConceptSchema = strictObject({
     symmetric: Type.Optional(Type.Boolean()), color: Type.Optional(Type.String({ pattern: "^#[0-9a-fA-F]{6}$" })),
   })),
   properties: Type.Optional(AttributesSchema),
+  body: Type.Optional(DocumentBodySchema),
 });

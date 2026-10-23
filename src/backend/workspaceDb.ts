@@ -11,7 +11,8 @@ export const STORES = { concepts: "concepts", state: "state", presentation: "pre
   media: "media", identities: "identities", commands: "commands", events: "events" } as const;
 export const WRITE_STORES = Object.values(STORES);
 export interface WorkspaceState { id: "workspace"; workspaceId: string; actorId: string; revision: number }
-export interface IdentityRecord { id: string; version: number; kind: "concept" | "media"; deleted: boolean }
+export type IdentityRecord = { id: string; version: number; deleted: boolean }
+  & ({ kind: "concept" | "media" } | { kind: "block"; ownerId: string });
 export interface SavedCommand { actorId: string; commandId: string; fingerprint: string; commit: Commit }
 export interface HistoryEntry { revision: number; commit: Commit; before: {
   concepts: ConceptRecord[]; presentation?: PresentationRecord; viewState?: ViewStateRecord; media: StoredMedia[];
@@ -39,6 +40,7 @@ export function openWorkspace(name: string, factory: IDBFactory, seed: "demo" | 
       for (const concept of initial.concepts) {
         concepts.put({ concept, version: 1 } satisfies ConceptRecord);
         identities.put({ id: concept.id, kind: "concept", version: 1, deleted: false } satisfies IdentityRecord);
+        for (const block of concept.body?.blocks ?? []) identities.put({ id: block.id, kind: "block", ownerId: concept.id, version: 1, deleted: false } satisfies IdentityRecord);
       }
       state.put({ id: "workspace", workspaceId, actorId, revision: 0 } satisfies WorkspaceState);
       presentation.put({ id: "shared", data: parts.presentation, version: 1 } satisfies SharedPresentation);

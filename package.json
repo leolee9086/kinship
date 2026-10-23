@@ -20,9 +20,17 @@
     "@sinclair/typebox": "^0.34.52",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "arktype": "2.1.29",
+    "calibur-router": "file:vendor/calibur-router-0.1.0.tgz",
     "pixi.js": "^8.22.0",
+    "prosemirror-commands": "^1.7.2",
+    "prosemirror-history": "^1.5.1",
+    "prosemirror-model": "^1.25.12",
+    "prosemirror-state": "^1.4.4",
+    "prosemirror-view": "^1.42.7",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

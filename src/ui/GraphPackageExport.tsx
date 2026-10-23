@@ -29,7 +29,7 @@ export function GraphPackageExport({ adapter, conceptId, disabled, onError }: {
     <div className="detail-actions"><button disabled={busy || disabled} onClick={() => void generate()}>{busy ? "正在生成…" : "生成导出预览"}</button>
       {preview && <button className="primary" onClick={download}>下载 JSON 图谱包</button>}</div>
     {preview && <div role="status"><p>{preview.selected.length} 个所选概念 · {preview.dependencies.length} 个必要依赖 · {preview.externals.length} 个外部引用</p>
-      <p className="muted">此包仅包含概念与关系；正文、媒体、展示设置和历史未包含。</p>
+      <p className="muted">此包包含概念、完整关系与它们的正文块树；媒体、展示设置和历史未包含。</p>
       {preview.externals.length > 0 && <p className="muted">导入时需要按 UUID 解析外部引用。可用顶栏“更多 → 导入图谱包”核对目标库，缺失引用会阻止提交。</p>}</div>}
   </section>;
 }

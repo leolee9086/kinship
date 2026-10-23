@@ -4,6 +4,8 @@ import type { Request, Result } from "../contracts/rpc";
 import type { GraphPackage } from "../contracts/graphPackage";
 import type { ImportPreview } from "../contracts/importPreview";
 import type { HistoryConcept, HistoryPage } from "../contracts/history";
+import type { DocumentBody } from "../contracts/document";
+import { verifyBodyCommit } from "./bodyResponse";
 import { fail } from "../contracts/errors";
 import { newId, type Concept, type ConceptMutation, type ConceptSnapshot, type GraphSettings, type MediaInfo } from "../domain/concepts";
 import { sha256 } from "../format/digest";
@@ -26,6 +28,7 @@ export interface DataAdapter {
   previewDelete(id: string): Promise<Result<"previewDelete">>;
   deleteConcept(params: Request<"deleteConcept">["params"], options?: CallOptions): Promise<Commit>;
   setForgotten(id: string, forgotten: boolean, expectedVersion: number, options?: CallOptions): Promise<Commit>;
+  saveBody(initial: Concept, body: DocumentBody, expectedVersion: number, options?: CallOptions): Promise<Commit>;
   historyList(params: Request<"historyList">["params"], options?: CallOptions): Promise<HistoryPage>;
   historyConcept(eventId: string, conceptId: string, options?: CallOptions): Promise<HistoryConcept>;
   execute(command: Apply, options?: CallOptions): Promise<Commit>;
@@ -64,6 +67,11 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
         || commit.changes.media?.length || commit.changes.removedMedia?.length)
         fail("RESULT_UNKNOWN", "生命周期响应与请求目标不一致，请重试原命令", { commandId }, true);
       replica!.apply(commit); return commit;
+    },
+    saveBody: async (initial, body, expectedVersion, options) => {
+      await ready();
+      const commit = await client.call("apply", { operations: [{ type: "concept.updateFields", id: initial.id, expectedVersion, fields: { body } }] }, options);
+      verifyBodyCommit(commit, initial, body, expectedVersion); replica!.apply(commit); return commit;
     },
     previewDelete: async id => { await ready(); return client.call("previewDelete", { id }); },
     deleteConcept: async (params, options) => { await ready(); const commit = await client.call("deleteConcept", params, options);

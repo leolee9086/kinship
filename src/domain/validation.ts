@@ -4,6 +4,7 @@ import { ConceptIndex } from "./conceptIndex";
 import { assert, object, text, uuid } from "./inputValidation";
 import { validatePresentation } from "./presentationValidation";
 import { coreVocabulary } from "./coreVocabulary";
+import { validateDocument } from "./document";
 
 /** 外部集合仅供显式边界文件校验参与对象；数据库提交始终使用空集合。 */
 export function validateConcepts(values: unknown, externalParticipants: ReadonlySet<string> = new Set()): Concept[] {
@@ -52,6 +53,14 @@ export function validateConcepts(values: unknown, externalParticipants: Readonly
     }
   }
   for (const slot of slots) assert(!ids.has(slot) && !externalParticipants.has(slot), "参与槽不能复用概念 UUID");
+  const blockIds = new Set<string>();
+  for (const concept of values as Concept[]) if (concept.body !== undefined) {
+    const body = validateDocument(concept.body);
+    for (const block of body.blocks) {
+      assert(!ids.has(block.id) && !slots.has(block.id) && !externalParticipants.has(block.id) && !blockIds.has(block.id), "正文块 UUID 与另一资源冲突");
+      blockIds.add(block.id);
+    }
+  }
   const concepts = values as Concept[];
   const index = new ConceptIndex(concepts);
   for (const c of concepts) {

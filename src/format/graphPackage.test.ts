@@ -52,7 +52,9 @@ it("rejects damaged content, ambiguous manifests and count/byte overflow instead
   await expect(readGraphPackage({ ...value, dependencies: [...value.dependencies, id] })).rejects.toThrow();
   await expect(exportGraphPackage(records, context, { ...selection, maxRecords: 1 })).rejects.toThrow("数量预算");
   await expect(exportGraphPackage(records, context, selection, 128)).rejects.toThrow("字节预算");
-  await expect(readGraphPackage({ ...value, spec: 2 })).rejects.toThrow();
+  await expect(readGraphPackage({ ...value, spec: 1 })).rejects.toThrow();
+  await expect(readGraphPackage({ ...value, spec: 3 })).rejects.toThrow();
+  await expect(readGraphPackage({ ...value, coverage: { ...value.coverage, documents: "omitted" } })).rejects.toThrow();
   const extra = named("林照月"), detached = { ...value,
     dependencies: [...value.dependencies, extra.id],
     concepts: [...value.concepts, { concept: extra, version: 3, sha256: "0".repeat(64) }],

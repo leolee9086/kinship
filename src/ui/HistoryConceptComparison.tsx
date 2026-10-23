@@ -3,7 +3,7 @@ import type { HistoryConcept } from "../contracts/history";
 import type { Concept } from "../domain/concepts";
 import { sameField } from "../format/fieldDiff";
 const labels: Record<keyof Concept, string> = { id: "UUID", label: "名称", forgotten: "遗忘标记", aliases: "别名", description: "说明",
-  types: "类型 UUID", broader: "上级 UUID", participants: "完整参与槽", schema: "约束与样式", properties: "属性" };
+  types: "类型 UUID", broader: "上级 UUID", participants: "完整参与槽", schema: "约束与样式", properties: "属性", body: "正文块树" };
 const text = (value: unknown) => value === undefined ? "未设置" : typeof value === "string" ? value : JSON.stringify(value, null, 2);
 export function HistoryConceptComparison({ detail }: { detail: HistoryConcept }) {
   const before = detail.before?.concept, after = detail.after?.concept;

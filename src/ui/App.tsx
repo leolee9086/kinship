@@ -1,5 +1,5 @@
 /** 通用概念工作台。布局、领域和存储后端各有边界，UI 只调用 DataAdapter。 */
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import type { DataAdapter } from "../adapter/api";
 import type { Concept, ConceptSnapshot } from "../domain/concepts";
@@ -18,6 +18,7 @@ import { createTextMeasurer, UNIT_PX } from "./graphGeometry";
 import { layoutConcepts } from "./conceptLayout";
 import { Background } from "./Background";
 import { ConceptEditor, type EditorMode } from "./ConceptEditor";
+
 import { ViewSettings } from "./ViewSettings";
 import { GraphPackageImport } from "./GraphPackageImport";
 import { ConceptDeletion } from "./ConceptDeletion";
@@ -30,6 +31,8 @@ import "./workspace.css";
 import "./deletion.css";
 import "./lifecycle.css";
 
+// 正文引擎独立加载；只看概念图的会话不需要解析整个编辑器。
+const BodyEditor = lazy(() => import("./BodyEditor").then(module => ({ default: module.BodyEditor })));
 type GraphState = ReturnType<typeof useConceptGraph>;
 interface AppProps { adapter: DataAdapter; projectControls?: (locked: boolean) => ReactNode }
 export function App({ adapter, projectControls }: AppProps) {
@@ -53,6 +56,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const excluded = explorationExclusions(index);
   const [tab, setTab] = useState<"instances" | "types" | "roles">("instances");
   const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
+  const [bodyEditor, setBodyEditor] = useState<{ initial: Concept; version: number } | null>(null);
   const [help, setHelp] = useState(false);
   const [importing, setImporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
@@ -109,7 +113,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.closest("input,textarea,select,button,summary,[contenteditable=true],[role=dialog]")) return;
-      if (importing || deleting || reviewing || lifecycle.locked) return;
+      if (importing || deleting || reviewing || bodyEditor || lifecycle.locked) return;
       if (event.key === "Escape") { setEditor(null); setHelp(false); setPanel(null); setLibrary(false); return; }
       if (editor || help) return;
       if (event.key === "/") { event.preventDefault(); setLibrary(true); requestAnimationFrame(() => search.current?.focus()); return; }
@@ -145,7 +149,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const relationCount = index.concepts.filter(c => !!c.participants).length;
 
   return <main ref={workspace} tabIndex={-1} className="workspace">
-    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing || reviewing || Boolean(deleting) || lifecycle.locked)} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
+    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || Boolean(bodyEditor) || importing || reviewing || Boolean(deleting) || lifecycle.locked)} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
       onLibrary={() => setLibrary(value => !value)} onSettings={() => setPanel(value => value === "settings" ? null : "settings")}
       onImport={() => setImporting(true)} onHistory={() => setReviewing(true)} onHelp={() => setHelp(true)} />
     {graph.error && <div className="error-banner" role="alert"><span>{graph.error}</span><button onClick={graph.clearError} aria-label="关闭错误提示">×</button></div>}
@@ -190,7 +194,8 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
             })}{!projection?.related.length && <p>当前没有收起的关系。</p>}</div>
           : selected ? <ConceptDetails adapter={adapter} index={index} concept={selected} version={snapshot.conceptVersions[selected.id]} busy={graph.pending > 0}
             locked={lifecycle.locked} expanded={settings.expandedRelations.includes(selected.id)} actions={{ focus: choose, edit: openEditor, inspect: setInspected,
-              toggleExpanded, deleteConcept: setDeleting, lifecycle: lifecycle.change, reportError: graph.reportError }} />
+              toggleExpanded, deleteConcept: setDeleting, lifecycle: lifecycle.change, reportError: graph.reportError,
+              body: concept => setBodyEditor({ initial: structuredClone(concept), version: snapshot.conceptVersions[concept.id] }) }} />
             : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
       </aside>}
     </div>
@@ -200,6 +205,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
     {deleting && <ConceptDeletion key={deleting} adapter={adapter} id={deleting} onDelete={graph.deleteConcept} onClose={() => setDeleting(null)} onDeleted={closeDeleted} />}
     {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
     {reviewing && <HistoryReview adapter={adapter} onClose={() => { setReviewing(false); requestAnimationFrame(() => workspace.current?.focus()); }} />}
+    {bodyEditor && <Suspense fallback={<div className="modal-scrim"><p role="status">正在打开正文编辑器…</p></div>}><BodyEditor initial={bodyEditor.initial} version={bodyEditor.version} onSave={graph.saveBody} onClose={() => setBodyEditor(null)} /></Suspense>}
     {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}
     {help && <div className="modal-scrim" onClick={() => setHelp(false)}><section className="help-dialog" role="dialog" aria-modal="true" aria-label="键盘帮助" onClick={e => e.stopPropagation()}><button className="close" onClick={() => setHelp(false)}>关闭</button><span className="eyebrow">FIND YOUR FLOW</span><h2>用键盘探索概念</h2><p>方向键沿屏幕方位切换焦点；Backspace 返回上一焦点。</p><dl><dt>/</dt><dd>搜索概念</dd><dt>Enter</dt><dd>编辑焦点</dd><dt>N</dt><dd>新建概念</dd><dt>R</dt><dd>新建关系</dd><dt>?</dt><dd>显示帮助</dd><dt>Esc</dt><dd>关闭面板</dd></dl><p>拖动平移，滚轮或双指缩放。点击关系线检查关系概念。</p></section></div>}
   </main>;

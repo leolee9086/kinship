@@ -1,0 +1,74 @@
+/** 验证中立正文与实际编辑器事务之间的身份/内容不变量，不仅检查序列化函数自身。 */
+import { expect, it } from "vitest";
+import { EditorState, TextSelection, type Transaction } from "prosemirror-state";
+import { splitBlock, setBlockType, joinBackward, wrapIn } from "prosemirror-commands";
+import { history, undo, redo } from "prosemirror-history";
+import { emptyDocument, validateDocument } from "../domain/document";
+import { newId } from "../domain/concepts";
+import { toEditorDocument, fromEditorDocument } from "./documentCodec";
+import { blockIdentityPlugin } from "./blockIdentity";
+import { editorSchema } from "./schema";
+import { dispatchEditorKey, acceptsEditorTransaction } from "./commandRouter";
+it("preserves UUIDs across splitting, format conversion, nesting, joining, undo and redo", () => {
+  const body = emptyDocument(), originalId = body.roots[0];
+  body.blocks[0].content = [{ kind: "text", text: "甲乙", marks: [{ kind: "bold" }] }];
+  let state = EditorState.create({ schema: editorSchema, doc: toEditorDocument(body), plugins: [history(), blockIdentityPlugin] });
+  const apply = (transaction: Transaction) => { state = state.applyTransaction(transaction).state; };
+  apply(state.tr.setSelection(TextSelection.create(state.doc, 2)));
+  expect(splitBlock(state, apply)).toBe(true);
+  const split = fromEditorDocument(state.doc), newBlockId = split.roots[1];
+  expect(split.roots[0]).toBe(originalId); expect(newBlockId).not.toBe(originalId);
+  expect(setBlockType(editorSchema.nodes.heading, { level: 2 })(state, apply)).toBe(true);
+  expect(fromEditorDocument(state.doc).roots).toEqual([originalId, newBlockId]);
+  expect(wrapIn(editorSchema.nodes.blockquote)(state, apply)).toBe(true);
+  const nested = fromEditorDocument(state.doc);
+  expect(nested.blocks.some(block => block.id === newBlockId && block.kind === "heading")).toBe(true);
+  expect(nested.blocks.find(block => block.kind === "quote")?.children).toEqual([newBlockId]);
+  expect(undo(state, apply)).toBe(true); expect(redo(state, apply)).toBe(true);
+  expect(fromEditorDocument(state.doc)).toEqual(nested);
+  // 独立合并用例：同类段落合并后保留前块身份。
+  state = EditorState.create({ schema: editorSchema, doc: toEditorDocument(split), plugins: [history(), blockIdentityPlugin] });
+  apply(state.tr.setSelection(TextSelection.create(state.doc, state.doc.firstChild!.nodeSize + 1)));
+  expect(joinBackward(state, apply)).toBe(true);
+  expect(fromEditorDocument(state.doc).roots).toEqual([originalId]);
+  expect(state.doc.textContent).toBe("甲乙");
+});
+it.each(["before", "after"])("assigns a fresh UUID when pasting %s the original and preserves both through undo/redo", placement => {
+  const body = emptyDocument(); body.blocks[0].content = [{ kind: "text", text: "复制正文", marks: [] }];
+  let state = EditorState.create({ schema: editorSchema, doc: toEditorDocument(body), plugins: [history(), blockIdentityPlugin] });
+  const apply = (transaction: Transaction) => { state = state.applyTransaction(transaction).state; };
+  apply(state.tr.insert(placement === "before" ? 0 : state.doc.content.size, state.doc.firstChild!));
+  const pasted = fromEditorDocument(state.doc), originalIndex = placement === "before" ? 1 : 0;
+  expect(pasted.roots[originalIndex]).toBe(body.roots[0]); expect(pasted.roots[1 - originalIndex]).not.toBe(body.roots[0]);
+  expect(undo(state, apply)).toBe(true); expect(fromEditorDocument(state.doc)).toEqual(body);
+  expect(redo(state, apply)).toBe(true); expect(fromEditorDocument(state.doc)).toEqual(pasted);
+});
+it("round-trips nested content and rejects cycles, shared/orphan nodes and invalid inline marks", () => {
+  const body = emptyDocument(), quote = newId(), heading = body.blocks[0];
+  heading.kind = "heading"; heading.level = 2; heading.content = [{ kind: "text", text: "正文", marks: [{ kind: "link", href: "https://example.org/" }] }, { kind: "break" }];
+  body.roots = [quote]; body.blocks.unshift({ id: quote, kind: "quote", children: [heading.id], content: [] });
+  expect(fromEditorDocument(toEditorDocument(body))).toEqual(body);
+  const shared = structuredClone(body); shared.roots.push(heading.id);
+  expect(() => validateDocument(shared)).toThrow();
+  const orphan = structuredClone(body); orphan.blocks.push(...emptyDocument().blocks);
+  expect(() => validateDocument(orphan)).toThrow();
+  const cycle = structuredClone(body); cycle.blocks[0].children = [quote]; expect(() => validateDocument(cycle)).toThrow();
+  const bad = structuredClone(body); bad.blocks[1].content = [{ kind: "text", text: "重复", marks: [{ kind: "bold" }, { kind: "bold" }] }];
+  expect(() => validateDocument(bad)).toThrow();
+});
+it("partitions composing, locked and editable state before shortcuts or text transactions", () => {
+  const key = { mode: "editable" as const, key: "enter", primary: true, shift: false, alt: false };
+  expect(dispatchEditorKey(key)).toBe("save");
+  expect(dispatchEditorKey({ ...key, mode: "composing" })).toBe("native");
+  expect(dispatchEditorKey({ ...key, mode: "locked" })).toBe("ignore");
+  expect(dispatchEditorKey({ ...key, mode: "locked", key: "c" })).toBe("native");
+  expect(dispatchEditorKey({ ...key, mode: "locked", key: "tab", primary: false })).toBe("native");
+  expect(dispatchEditorKey({ ...key, primary: false })).toBe("base");
+  expect(dispatchEditorKey({ ...key, primary: false, shift: true })).toBe("break");
+  expect(dispatchEditorKey({ ...key, key: "z" })).toBe("undo");
+  expect(dispatchEditorKey({ ...key, key: "z", shift: true })).toBe("redo");
+  expect(dispatchEditorKey({ ...key, key: "heading" })).toBe("heading");
+  expect(acceptsEditorTransaction({ locked: true, changed: true })).toBe(false);
+  expect(acceptsEditorTransaction({ locked: true, changed: false })).toBe(true);
+  expect(acceptsEditorTransaction({ locked: false, changed: true })).toBe(true);
+});

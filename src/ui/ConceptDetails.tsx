@@ -10,7 +10,7 @@ interface DetailActions {
   focus: (id: string) => void; edit: (concept: Concept) => void; inspect: (id: string) => void;
   toggleExpanded: (id: string) => void; deleteConcept: (id: string) => void;
   lifecycle: (target: { id: string; label: string; version: number; forgotten: boolean }) => void;
-  reportError: (message: string) => void;
+  reportError: (message: string) => void; body: (concept: Concept) => void;
 }
 export function ConceptDetails({ adapter, index, concept, version, busy, locked, expanded, actions }: {
   adapter: DataAdapter; index: ConceptIndex; concept: Concept; version: number; busy: boolean; locked: boolean; expanded: boolean; actions: DetailActions;
@@ -18,7 +18,7 @@ export function ConceptDetails({ adapter, index, concept, version, busy, locked,
   const excluded = explorationExclusions(index);
   return <div className="inspector-body"><span className="type-badge">{index.typeLabel(concept)}</span><h3>{concept.label}</h3>
     <p>{concept.description || "可以添加说明，记录这个概念的含义与背景。"}</p>
-    <div className="detail-actions"><button className="primary" onClick={() => actions.focus(concept.id)}>作为焦点</button><button disabled={busy || locked} onClick={() => actions.edit(concept)}>编辑</button></div>
+    <div className="detail-actions"><button className="primary" onClick={() => actions.focus(concept.id)}>作为焦点</button><button disabled={busy || locked} onClick={() => actions.edit(concept)}>编辑</button><button disabled={busy || locked} onClick={() => actions.body(concept)}>正文</button></div>
     {concept.participants && <section><h4>参与概念 · {concept.participants.length}</h4>{concept.participants.map(p => <button className="participant-link" key={p.id} onClick={() => actions.focus(p.concept)}>
       <span>{index.roleLabel(p.role)}</span><strong>{index.get(p.concept).label}{index.get(p.concept).forgotten && " · 已遗忘"}</strong><span>↗</span></button>)}
       <button onClick={() => actions.toggleExpanded(concept.id)}>{expanded ? "压缩关系表示" : "展开为关系节点"}</button><p className="muted">多元关系保留枢纽；二元关系可以在线与节点间切换，身份不变。</p></section>}

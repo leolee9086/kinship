@@ -13,7 +13,7 @@ export function GraphPackageImport({ adapter, onImport, onClose }: { adapter: Da
     <header className="panel-header"><div><span className="eyebrow">GRAPH PACKAGE</span><h2>导入局部图谱</h2></div>
       <button type="button" onClick={onClose} disabled={form.busy || form.uncertain} aria-label="关闭图谱导入">×</button></header>
     <form onSubmit={event => { event.preventDefault(); void form.submit(); }}>
-      <p>按 UUID 匹配概念与完整关系。包内未包含的正文、媒体、设置和历史保持原样。</p>
+      <p>按 UUID 匹配概念、完整关系及正文。采用包内内容会同时采用该概念的完整正文；媒体、设置和历史保持原样。</p>
       <label>选择 JSON 图谱包（最多 1 MiB）<input autoFocus type="file" accept=".json,application/json" disabled={locked}
         onChange={event => { const file = event.currentTarget.files?.[0]; if (file) void form.chooseFile(file); event.currentTarget.value = ""; }}/></label>
       {preview && <>

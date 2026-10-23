@@ -14,14 +14,14 @@ export const ExternalReferenceSchema = strictObject({
   kind: Type.Union([Type.Literal("concept"), Type.Literal("type"), Type.Literal("role"), Type.Literal("relation")]),
 });
 export const GraphPackageSchema = strictObject({
-  format: Type.Literal("kinship.graph-package"), spec: Type.Literal(1), id: UUIDSchema,
+  format: Type.Literal("kinship.graph-package"), spec: Type.Literal(2), id: UUIDSchema,
   source: strictObject({ workspaceId: UUIDSchema, revision: VersionSchema }),
   mode: Type.Union([Type.Literal("standalone"), Type.Literal("boundary")]),
   entrypoints: ids(1), selected: ids(1), dependencies: ids(),
   concepts: Type.Array(PackageRecordSchema, { minItems: 1, maxItems: MAX_PACKAGE_RECORDS }),
   externals: Type.Array(ExternalReferenceSchema, { maxItems: MAX_PACKAGE_RECORDS }),
   coverage: strictObject({
-    concepts: Type.Literal("complete-records"), documents: Type.Literal("omitted"),
+    concepts: Type.Literal("complete-records"), documents: Type.Literal("concept-bodies"),
     media: Type.Literal("omitted"), presentation: Type.Literal("omitted"), history: Type.Literal("omitted"),
   }),
   extensions: Type.Optional(AttributesSchema),

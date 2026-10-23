@@ -8,6 +8,7 @@ import { planCommand, type PlanInput } from "./commandPlan";
 import { checkVersion } from "./versions";
 import { readPlanInput } from "./planInput";
 import { guardDeletedReferences } from "./deletionGuard";
+import { publishBodyIdentities } from "./bodyIdentity";
 import { STORES as S, WRITE_STORES, type HistoryEntry, type IdentityRecord,
   type SavedCommand, type WorkspaceState } from "./workspaceDb";
 
@@ -98,6 +99,7 @@ function checkBackground(tx: IDBTransaction, state: WorkspaceState, input: Comma
 
 function publishPlan(tx: IDBTransaction, state: WorkspaceState, input: CommandExecution, changes: Commit["changes"],
   before: HistoryEntry["before"]): Commit {
+  publishBodyIdentities(tx, changes, before);
   for (const record of changes.put) {
     tx.objectStore(S.concepts).put(record);
     tx.objectStore(S.identities).put({ id: record.concept.id, kind: "concept", version: record.version, deleted: false } satisfies IdentityRecord);

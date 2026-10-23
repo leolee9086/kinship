@@ -12,7 +12,7 @@ export function conceptCommands(concept: Concept, initial: Concept | undefined, 
   if (forgottenAfter !== forgottenBefore) result.push({ type: forgottenAfter ? "concept.forget" : "concept.restore", id: concept.id, expectedVersion });
   const fields = changedFields(before, after);
   if (Object.keys(fields).length) result.push({ type: "concept.updateFields", id: concept.id, expectedVersion, fields });
-  const unset = (["aliases", "description", "broader", "properties", "schema"] as const).filter(key => before[key] !== undefined && after[key] === undefined);
+  const unset = (["aliases", "description", "broader", "properties", "schema", "body"] as const).filter(key => before[key] !== undefined && after[key] === undefined);
   if (unset.length) result.push({ type: "concept.unsetFields", id: concept.id, expectedVersion, fields: unset });
   const desired = concept.participants, original = initial.participants;
   if (!desired && !original) return result;

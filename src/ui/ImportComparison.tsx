@@ -2,7 +2,7 @@
 import type { Concept } from "../domain/concepts";
 import { sameField } from "../format/fieldDiff";
 const labels: Record<keyof Concept, string> = { id: "身份", label: "名称", forgotten: "遗忘标记（true为已遗忘，未设置为当前）", aliases: "别名", description: "说明", types: "类型",
-  broader: "上级", properties: "属性", schema: "约束与样式", participants: "参与槽" };
+  broader: "上级", properties: "属性", schema: "约束与样式", participants: "参与槽", body: "完整正文块树" };
 const text = (value: unknown) => value === undefined ? "未设置" : typeof value === "string" ? value : JSON.stringify(value, null, 2);
 export function ImportComparison({ target, incoming }: { target: Concept; incoming: Concept }) {
   const keys = Object.keys(labels) as (keyof Concept)[];

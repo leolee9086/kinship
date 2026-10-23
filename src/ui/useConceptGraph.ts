@@ -5,6 +5,8 @@ import type { ConceptMutation, ConceptSnapshot, GraphSettings } from "../domain/
 import type { Request } from "../contracts/rpc";
 import type { CallOptions } from "../adapter/rpcClient";
 import type { Commit } from "../contracts/commands";
+import type { DocumentBody } from "../contracts/document";
+import type { Concept } from "../domain/concepts";
 
 export function useConceptGraph(adapter: DataAdapter) {
   const [snapshot, setSnapshot] = useState<ConceptSnapshot | null>(null);
@@ -76,5 +78,7 @@ export function useConceptGraph(adapter: DataAdapter) {
     commitAndReload(() => adapter.deleteConcept(params, options), "删除"), [adapter, commitAndReload]);
   const setForgotten = useCallback((id: string, forgotten: boolean, expectedVersion: number, options: CallOptions) =>
     commitAndReload(() => adapter.setForgotten(id, forgotten, expectedVersion, options), forgotten ? "遗忘" : "恢复"), [adapter, commitAndReload]);
-  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate, importGraph, deleteConcept, setForgotten, reload };
+  const saveBody = useCallback((initial: Concept, body: DocumentBody, version: number, options: CallOptions) =>
+    commitAndReload(() => adapter.saveBody(initial, body, version, options), "正文"), [adapter, commitAndReload]);
+  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate, importGraph, deleteConcept, setForgotten, saveBody, reload };
 }

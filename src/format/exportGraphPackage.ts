@@ -28,9 +28,9 @@ export async function exportGraphPackage(records: readonly ConceptRecord[], sour
     kind: index.isType(record.concept) ? "type" : index.isRole(record.concept) ? "role"
       : record.concept.participants ? "relation" : "concept",
   });
-  const value: GraphPackage = { format: "kinship.graph-package", spec: 1, id: newId(), source,
+  const value: GraphPackage = { format: "kinship.graph-package", spec: 2, id: newId(), source,
     mode: selection.mode, entrypoints: [...selection.entrypoints], selected: chosen.selected, dependencies: chosen.dependencies,
-    concepts, externals, coverage: { concepts: "complete-records", documents: "omitted", media: "omitted", presentation: "omitted", history: "omitted" },
+    concepts, externals, coverage: { concepts: "complete-records", documents: "concept-bodies", media: "omitted", presentation: "omitted", history: "omitted" },
   };
   assert(new TextEncoder().encode(canonicalJSON(value)).byteLength <= maxBytes, "图谱包超过字节预算，请缩小选择");
   return readGraphPackage(value);
