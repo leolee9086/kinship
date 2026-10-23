@@ -66,10 +66,9 @@ h1, h2, h3, h4, p { margin-top: 0; }
 .pixi-host canvas { display: block; touch-action: none; user-select: none; cursor: grab; outline: none; }
 .pixi-host canvas:focus-visible { outline: 2px solid #86a991; outline-offset: -3px; }
 .graph-toolbar { position: absolute; top: 20px; left: 24px; right: 24px; display: flex; gap: 14px; align-items: center; z-index: 2; width: fit-content; max-width: calc(100% - 48px); padding: 9px 12px; border: 1px solid #e1e8dc; border-radius: 11px; background: #fffef9eb; box-shadow: 0 3px 15px #4e664709; backdrop-filter: blur(10px); }
-.graph-toolbar label, .color-toolbar label { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #8b9989; white-space: nowrap; }
-.graph-toolbar select, .color-toolbar select { border: 0; width: auto; background: transparent; padding: 4px; font-size: 11px; color: #536b56; }
+.graph-toolbar label { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #8b9989; white-space: nowrap; }
+.graph-toolbar select { border: 0; width: auto; background: transparent; padding: 4px; font-size: 11px; color: #536b56; }
 .graph-toolbar button { border: 0; background: transparent; color: #6f856e; font-size: 10px; padding: 5px; }
-.tool-divider { width: 1px; height: 21px; background: #e2e8dd; }
 .focus-card { position: absolute; left: 28px; top: 89px; display: flex; flex-direction: column; gap: 7px; pointer-events: none; width: min(280px, 45%); }
 .focus-card strong { font-family: Georgia, 'Noto Sans SC', serif; font-weight: 500; font-size: 22px; color: #34543f; letter-spacing: -.04em; }
 .focus-card > span:last-of-type { font-size: 9px; color: #a0ae98; line-height: 1.8; }
@@ -79,10 +78,6 @@ h1, h2, h3, h4, p { margin-top: 0; }
 .region-caption.down { bottom: 126px; left: 50%; transform: translateX(-50%); }
 .region-caption.left { left: 20px; top: 51%; writing-mode: vertical-rl; }
 .region-caption.right { right: 20px; top: 51%; writing-mode: vertical-rl; }
-.color-toolbar { position: absolute; left: 25px; bottom: 83px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; z-index: 2; background: #fffef9eb; border: 1px solid #e4e9dc; border-radius: 8px; padding: 5px 9px; max-width: calc(100% - 195px); }
-.relation-legend { position: absolute; left: 28px; bottom: 130px; max-width: min(330px, 45%); display: flex; flex-wrap: wrap; gap: 4px 12px; z-index: 2; }
-.relation-legend label { display: flex; align-items: center; gap: 4px; font-size: 9px; color: #8a9b83; background: #f8faf2d9; border-radius: 4px; padding: 2px 5px; }
-.relation-legend input { width: 13px; height: 13px; }
 .canvas-controls { position: absolute; left: 25px; bottom: 31px; z-index: 2; background: #fffef9ec; border: 1px solid #e2e9d9; display: flex; align-items: center; gap: 2px; border-radius: 9px; padding: 3px; box-shadow: 0 2px 10px #4c63400a; }
 .canvas-controls button { border: 0; padding: 7px 9px; font-size: 10px; background: transparent; }
 .canvas-controls output { font-size: 10px; color: #8da17e; width: 35px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -156,7 +151,16 @@ details summary { cursor: pointer; color: #8a9f80; font-size: 10px; padding: 10p
 .error { position: absolute; z-index: 20; color: #a46855; background: #fff0e8; padding: 15px; border-radius: 8px; }
 @media (max-width: 1250px) { .concept-library { width: 225px; } .app-header { padding: 13px 20px; } .inspector { width: 290px; } .graph-toolbar { gap: 8px; left: 16px; max-width: calc(100% - 32px); padding: 7px 8px; flex-wrap: wrap; } .graph-toolbar label { font-size: 9px; } }
 @media (max-width: 1050px) { .inspector { position: absolute; inset: 0 0 0 auto; width: 318px; box-shadow: -15px 0 40px #37552a15; } .save-status { display: none; } }
-@media (max-width: 760px) { .app-header { min-height: 65px; padding: 10px 14px; } .brand-mark { width: 30px; height: 35px; font-size: 24px; border-radius: 10px 10px 10px 3px; } .brand { gap: 8px; } .brand strong { font-size: 21px; } .brand span:not(.brand-mark) { font-size: 8px; } .header-actions { gap: 4px; } .header-actions button { padding: 7px 8px; font-size: 10px; } .concept-library { display: none; position: absolute; inset: 0 auto 0 0; width: min(300px, 90vw); box-shadow: 12px 0 40px #37552a20; } .concept-library.is-open { display: flex; } .graph-toolbar { top: 12px; left: 12px; right: 12px; max-width: calc(100% - 24px); gap: 6px; padding: 7px; } .graph-toolbar .view-select > span { display: none; } .graph-toolbar select { font-size: 10px; padding: 3px 0; } .graph-toolbar .check { font-size: 9px; gap: 3px; } .graph-toolbar .tool-divider { display: none; } .focus-card { top: 85px; left: 18px; width: 70%; } .focus-card strong { font-size: 19px; } .focus-card > span:last-child { font-size: 8px; } .region-caption.up { top: 168px; } .color-toolbar { left: 13px; bottom: 129px; max-width: calc(100% - 26px); padding: 5px; gap: 4px; } .color-toolbar select { font-size: 10px; } .relation-legend { left: 16px; bottom: 178px; max-width: calc(100% - 40px); gap: 4px; } .relation-legend label { font-size: 8px; } .canvas-controls { left: 13px; bottom: 66px; } .canvas-controls button { padding: 8px; } .graph-status { left: 15px; bottom: 30px; max-width: 51%; line-height: 1.6; } .graph-status span { display: block; margin: 0; } .region-caption.down { bottom: 228px; } .inspector { width: min(330px, 94vw); } .editor-dialog { max-height: 94dvh; } .modal-scrim { padding: 10px; } .editor-dialog form { padding: 17px; } }
+@media (max-width: 760px) {
+  .concept-library { display: none; position: absolute; inset: 0 auto 0 0; width: min(300px, 90vw); box-shadow: 12px 0 40px #37552a20; }
+  .concept-library.is-open { display: flex; }
+  .graph-toolbar .view-select > span { display: none; }
+  .focus-card { width: 70%; } .focus-card strong { font-size: 19px; }
+  .region-caption.up { top: 168px; }
+  .graph-status { line-height: 1.6; } .graph-status span { display: block; margin: 0; }
+  .inspector { width: min(330px, 94vw); } .editor-dialog { max-height: 94dvh; }
+  .modal-scrim { padding: 10px; } .editor-dialog form { padding: 17px; }
+}
 .package-import .panel-header { padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; }
 .package-import p { font-size: 12px; line-height: 1.8; }
 .package-import small { display: block; font-size: 10px; overflow-wrap: anywhere; color: #87957e; }

@@ -19,7 +19,7 @@ export interface HistoryEntry { revision: number; commit: Commit; before: {
 export type SharedPresentation = PresentationRecord & { id: "shared" };
 export type ActorViewState = ViewStateRecord & { id: string };
 
-export function openWorkspace(name: string, factory: IDBFactory): Promise<IDBDatabase> {
+export function openWorkspace(name: string, factory: IDBFactory, seed: "demo" | "blank" = "demo"): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = factory.open(name, 1);
     request.onupgradeneeded = () => {
@@ -32,7 +32,7 @@ export function openWorkspace(name: string, factory: IDBFactory): Promise<IDBDat
       db.createObjectStore(STORES.media, { keyPath: "id" });
       db.createObjectStore(STORES.commands, { keyPath: ["actorId", "commandId"] });
       db.createObjectStore(STORES.events, { keyPath: "revision" }).createIndex("eventId", "commit.eventId", { unique: true });
-      const initial = initialSnapshot();
+      const initial = initialSnapshot(seed);
       validateConcepts(initial.concepts); validateSettings(initial.settings);
       validatePresentationReferences(initial.settings, new ConceptIndex(initial.concepts));
       const actorId = newId(), workspaceId = newId(), parts = splitSettings(initial.settings);

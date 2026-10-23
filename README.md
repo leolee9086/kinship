@@ -6,6 +6,8 @@
 
 ## 当前能力
 
+- 顶栏可切换、新建和重命名项目；各项目的概念、设置、媒体和历史独立，重新打开时恢复上次项目与焦点。
+- 全局操作集中在顶栏，导入与帮助位于“更多”；画布只保留视角、焦点和缩放，“展示”侧栏按显示、布局、背景分页。
 - 关系拥有带 UUID 的参与槽，每个槽引用角色概念和参与概念；支持多人关系、关系参与另一关系，同一对概念可有多条独立关系。
 - 二元关系可以选中为线、展开成节点或直接聚焦；多人关系保留枢纽，展开和压缩不创建新事实。
 - **视角决定看什么**：可新建、复制、重命名和删除；族谱、协作、事件、全部关系是新工作区的起始模板。分类可设为主轴、淡显、收进“相关”或隐藏，子分类继承最近规则。主轴先参与遍历和布局，淡显只补充背景，“相关”可临时展开。
@@ -22,12 +24,14 @@
 所有业务数据、持久设置和媒体操作只有一条路径：
 
 ```text
-React UI → DataAdapter → typed POST RPC → internal fetch → schema / domain validation → GraphRepository → IndexedDB
+React UI → ProjectAdapter / DataAdapter → typed POST RPC → internal fetch → schema / domain validation → ProjectRepository / GraphRepository → IndexedDB
 ```
 
 UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、原子命令、命令状态、分页事件和媒体。请求与响应用同一套严格 JSON Schema 校验，类型从模式推导。资源有独立版本；可信编辑者、业务变化、幂等命令结果、恢复前值和事件在同一事务中保存。同一命令 ID 与内容可跨连接、重开数据库后重放；ID 换内容或版本过时会明确拒绝。个人焦点与导航单独持久化，不广播到共享事件。源码入口：[契约注册表](./src/contracts/rpc.ts)、[标准模式目录](./src/contracts/catalog.ts)、[事务执行](./src/backend/commandTransaction.ts)。
 
-数据库是主事实来源。当前站点使用 `kinship-workspaces` IndexedDB v1，分别保存概念、共享展示定义、个人视图状态、媒体、身份墓碑、命令结果和事件。新工作区从版本化 JSON [词汇模板](./src/templates/starter-vocabulary.json)、[演示模板](./src/templates/starter-demo.json)和[展示模板](./src/templates/starter-presentation.json)初始化，模板中的概念与槽位身份都是 UUID；随后只读取数据库中的已保存记录，更新模板不会重新填充已有工作区。开发阶段不保留旧结构兼容、双写或隐式导入；不读取、不迁移、不删除 `kinship`、`kinship-concepts`、`kinship-workspace` 等旧开发库。不同域名、端口或浏览器配置使用各自的站点存储。
+数据库是主事实来源。项目目录 `kinship-projects` v1 保存项目 UUID、名称、版本、当前选择和持久命令结果；`POST /rpc/v1/projects/list` 读取，`POST /rpc/v1/projects/apply` 原子创建/选择/版本化重命名，拥有独立 `catalogId` 上下文。目录初建只把当前 `kinship-workspaces` 登记为“我的图谱”，不复制或重新填充其中的数据；明确新建的项目使用独立 `kinship-project-<UUID>` 图谱库，提供词汇与通用展示模板，不含演示关系。项目 UUID 与图谱 workspaceId 分开；每个打开的 DataAdapter 固定到该项目，切换不会改变已发出写请求的目标。项目契约见[项目注册表](./src/contracts/projects.ts)，本地装配见[项目服务](./src/composition/localProjects.ts)。
+
+每个图谱库仍是 IndexedDB v1，分别保存概念、共享展示定义、个人视图状态、媒体、身份墓碑、命令结果和事件。新工作区从版本化 JSON [词汇模板](./src/templates/starter-vocabulary.json)、[演示模板](./src/templates/starter-demo.json)和[展示模板](./src/templates/starter-presentation.json)初始化，模板中的概念与槽位身份都是 UUID；随后只读取数据库中的已保存记录，更新模板不会重新填充已有工作区。开发阶段不保留旧结构兼容、双写或隐式导入；不读取、不迁移、不删除 `kinship`、`kinship-concepts`、`kinship-workspace` 等旧开发库。不同域名、端口或浏览器配置使用各自的站点存储。
 
 概念编辑按字段差异提交，参与槽按 UUID 添加、修改、移动和移除；视图/视角定义与个人状态也有独立操作，不提供整对象 replace 入口。同一事务内可组合多个字段与槽位变更，统一检查原始资源版本，每个资源只递增一次。相关入口：[概念与槽位操作](./src/contracts/conceptOperations.ts)、[设置操作](./src/contracts/settingsOperations.ts)、[最终图校验](./src/backend/commandPlan.ts)。
 
@@ -35,7 +39,7 @@ UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、�
 
 概念详情可**预览并下载局部 JSON 图谱包**：选当前概念/关系作为入口，带必要定义，选择补齐参与对象或保留外部 UUID 引用。完整关系的全部参与槽原样保留，嵌套关系按出向引用补齐，不扩展参与者的其他关系。`entrypoints`、`selected`、`dependencies`、`externals`、来源修订和覆盖声明均明确，逐记录 SHA-256 摘要在客户端再次校验。默认上限 1000 条概念、1 MiB，超预算明确报错；仅导出概念与关系，正文、媒体、展示和历史明确未包含。入口是 `DataAdapter.exportGraph → POST /rpc/v1/graph/export`，不会在 UI 中直接读取数据库。契约见[图谱包模式](./src/contracts/graphPackage.ts)，闭包规则见[局部选择](./src/domain/packageSelection.ts)。
 
-顶部**导入**可上传最多 1 MiB 的 JSON 图谱包。文件通过 `DataAdapter → multipart POST /rpc/v1/graph/import/file` 交给后端检查字节摘要、UTF-8 和文件契约；UI 不自行解析文件。预览按 UUID 区分新增、相同、内容冲突和身份不可用，冲突可展开比较字段，再逐项保留目标或采用包内完整内容。缺失的外部 UUID、身份墓碑和槽位碰撞阻止提交；外部对象内容变化须明确接受目标版本，不按名称猜匹配。可通过 `POST /rpc/v1/graph/import/preview` 重新核对。
+顶栏 **更多 → 导入图谱包** 可上传最多 1 MiB 的 JSON 图谱包。文件通过 `DataAdapter → multipart POST /rpc/v1/graph/import/file` 交给后端检查字节摘要、UTF-8 和文件契约；UI 不自行解析文件。预览按 UUID 区分新增、相同、内容冲突和身份不可用，冲突可展开比较字段，再逐项保留目标或采用包内完整内容。缺失的外部 UUID、身份墓碑和槽位碰撞阻止提交；外部对象内容变化须明确接受目标版本，不按名称猜匹配。可通过 `POST /rpc/v1/graph/import/preview` 重新核对。
 
 确认导入经 `POST /rpc/v1/graph/import/apply`，在同一严格事务保存事实、资源版本、编辑者、前值、来源包身份/摘要/修订和幂等结果。预览后的共享写会使整个导入明确过期；最多 128 个原子操作，超额报错，不分批截断。完整相同的导入不递增共享修订。来源版本不充当目标版本；重开数据库或并发重放同一命令不会重复创建记录。提交结果不明时表单保留原命令与内容供重试；未包含的对象、正文、媒体、展示和历史不会删除。入口见[导入契约](./src/contracts/importPreview.ts)、[差异规划](./src/domain/importCommands.ts)、[导入事务](./src/backend/importTransaction.ts)。
 

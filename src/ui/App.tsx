@@ -1,7 +1,8 @@
 /** 通用概念工作台。布局、领域和存储后端各有边界，UI 只调用 DataAdapter。 */
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { WorkspaceHeader } from "./WorkspaceHeader";
 import type { DataAdapter } from "../adapter/api";
-import type { Concept, ConceptSnapshot, ColorAxis } from "../domain/concepts";
+import type { Concept, ConceptSnapshot } from "../domain/concepts";
 import { coreVocabulary } from "../domain/coreVocabulary";
 import { ConceptIndex } from "../domain/conceptIndex";
 import { ConceptCatalog } from "../domain/conceptCatalog";
@@ -21,16 +22,18 @@ import { ConceptLibraryList } from "./ConceptLibraryList";
 import { useConceptGraph } from "./useConceptGraph";
 import { useWorkspacePanels } from "./useWorkspacePanels";
 import "./app.css";
+import "./workspace.css";
 
 type GraphState = ReturnType<typeof useConceptGraph>;
-export function App({ adapter }: { adapter: DataAdapter }) {
+interface AppProps { adapter: DataAdapter; projectControls?: (locked: boolean) => ReactNode }
+export function App({ adapter, projectControls }: AppProps) {
   const graph = useConceptGraph(adapter);
   if (!graph.snapshot) return <main className="loading-screen"><span className="brand-mark">k</span><h1>Kinship</h1>
     {graph.error ? <p role="alert">{graph.error}</p> : <p>正在打开概念图谱…</p>}</main>;
-  return <Workspace adapter={adapter} graph={graph} snapshot={graph.snapshot} />;
+  return <Workspace adapter={adapter} projectControls={projectControls} graph={graph} snapshot={graph.snapshot} />;
 }
 
-function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: GraphState; snapshot: ConceptSnapshot }) {
+function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { graph: GraphState; snapshot: ConceptSnapshot }) {
   const settings = snapshot.settings;
   const index = useMemo(() => new ConceptIndex(snapshot.concepts), [snapshot.concepts]);
   const focus = settings.focusId;
@@ -129,13 +132,9 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
   const relationCount = index.concepts.filter(c => !!c.participants).length;
 
   return <main className="workspace">
-    <header className="app-header"><div className="brand"><span className="brand-mark">k</span><div><strong>Kinship</strong><span>概念之间，皆有关联。</span></div></div>
-      <div className="header-actions"><span className="save-status" role="status">{graph.pending ? "正在保存…" : graph.error ? "存在未保存变更" : "已保存到概念仓库"}</span>
-        <button className={library ? "active" : ""} onClick={() => setLibrary(v => !v)}>概念库</button>
-        <button className={panel === "settings" ? "active" : ""} onClick={() => setPanel(p => p === "settings" ? null : "settings")}>视图与背景</button>
-        <button disabled={graph.pending > 0} onClick={() => setImporting(true)}>导入</button>
-        <button aria-label="键盘帮助" onClick={() => setHelp(true)}>?</button></div>
-    </header>
+    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing)} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
+      onLibrary={() => setLibrary(value => !value)} onSettings={() => setPanel(value => value === "settings" ? null : "settings")}
+      onImport={() => setImporting(true)} onHelp={() => setHelp(true)} />
     {graph.error && <div className="error-banner" role="alert"><span>{graph.error}</span><button onClick={graph.clearError} aria-label="关闭错误提示">×</button></div>}
     <div className="work-area">
       <aside className={`concept-library ${library ? "is-open" : ""}`}>
@@ -150,9 +149,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
         <Background adapter={adapter} settings={settings.background} onError={graph.reportError} />
         <div className="graph-toolbar"><label className="view-select"><span>视角</span><select aria-label="视角" value={settings.perspective.presetId} onChange={e => graph.changeSettings({ perspective: { ...settings.perspective, presetId: e.target.value } })}>{settings.perspective.presets.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}</select></label>
           <button onClick={() => setPanel("perspective")}>配置视角</button>
-          <div className="tool-divider" /><label>邻域<select aria-label="邻域深度" value={settings.depth} onChange={e => graph.changeSettings({ depth: Number(e.target.value) })}>{[1, 2, 3, 4, 6, 8, 12].map(n => <option key={n} value={n}>{n} 跳</option>)}</select></label>
-          <label className="check"><input type="checkbox" checked={settings.showRelationLabels} onChange={e => graph.changeSettings({ showRelationLabels: e.target.checked })} />关系类型文字</label>
-          <button onClick={() => { setInspected(focus); setPanel("details"); }}>焦点详情</button>
+          <button disabled={!focus} onClick={() => { setInspected(focus); setPanel("details"); }}>焦点详情</button>
         </div>
         {focus && projection ? <PixiGraph nodes={nodes} curves={curves} camera={camera} onCameraChange={setCamera} onNodeClick={choose}
           onRelationClick={id => { setInspected(id); setPanel("details"); }} selectedRelation={selected?.participants ? selected.id : null}
@@ -161,19 +158,14 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
           : <div className="graph-empty"><h2>从一个概念开始</h2><p>在概念库中选择焦点，或创建新的概念。</p><button className="primary" onClick={() => setLibrary(true)}>打开概念库</button></div>}
         <div className="region-caption up">上方</div><div className="region-caption down">下方</div>
         <div className="region-caption left">左侧</div><div className="region-caption right">右侧</div>
-        <div className="focus-card"><span className="eyebrow">CURRENT FOCUS</span><strong>{focus ? index.get(focus).label : "尚未选择"}</strong><span>{perspective.description}</span>
+        {focus && <div className="focus-card"><span className="eyebrow">CURRENT FOCUS</span><strong>{index.get(focus).label}</strong><span>{perspective.description}</span>
           {!!projection?.related.length && <button className="related-trigger" onClick={() => setPanel("related")}>相关 · {projection.related.length} ↗</button>}
-        </div>
-        <div className="color-toolbar"><label>赋色轴<select aria-label="赋色轴" value={settings.colorAxis} onChange={e => graph.changeSettings({ colorAxis: e.target.value as ColorAxis })}><option value="relation">关系类型</option><option value="first-role">第一参与角色</option><option value="second-role">第二参与角色</option><option value="role-pair">前两参与角色对</option></select></label>
-          <label>区分深度<select aria-label="颜色区分深度" value={settings.colorDepth} onChange={e => graph.changeSettings({ colorDepth: Number(e.target.value) })}>{[0, 1, 2, 3, 4, 6, 12].map(n => <option key={n} value={n}>{n}</option>)}</select></label>
-          <select aria-label="关系曲线样式" value={curveStyle.type} onChange={e => graph.changeSettings({ curve: { ...curveStyle, type: e.target.value as CurveStyle["type"] } })}><option value="bezier">贝塞尔</option><option value="straight">直线</option></select>
-        </div>
-        <div className="relation-legend" aria-label="当前赋色图例">{legend.map(l => <label key={l.key}><input aria-label={`${l.label}的颜色`} type="color" value={`#${l.color.toString(16).padStart(6, "0")}`} onChange={e => graph.changeSettings({ palette: { ...settings.palette, [l.key]: e.target.value } })} /><span>{l.label}</span></label>)}</div>
+        </div>}
         <div className="canvas-controls"><button aria-label="缩小" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.04, c.zoom / 1.2) }))}>−</button><output>{Math.round(camera.zoom * 100)}%</output><button aria-label="放大" onClick={() => setCamera(c => ({ ...c, zoom: Math.min(4, c.zoom * 1.2) }))}>＋</button><button onClick={recenter}>回到焦点</button><button onClick={fit}>适应邻域</button></div>
         <div className="graph-status">{nodes.length} 个显示概念 · {curves.length} 条连接投影 <span>全库 {index.concepts.length} 概念 / {relationCount} 关系实例</span>{!!projection?.omitted && <span className="limit-note">邻域显示上限 {projection.budget}，另有 {projection.omitted} 个已发现概念；搜索可聚焦完整概念库。</span>}</div>
       </section>
-      {panel && <aside className="inspector"><header><div><span className="eyebrow">{panel === "settings" ? "MAKE IT YOURS" : "CONCEPT ATLAS"}</span><h2>{({ settings: "布局与背景", perspective: "视角配置", related: "收起的相关关系", details: "概念详情" })[panel]}</h2></div><button aria-label="关闭侧面板" onClick={() => setPanel(null)}>×</button></header>
-        {panel === "settings" ? <ViewSettings adapter={adapter} settings={settings} view={view} index={index} onChange={graph.changeSettings} onError={graph.reportError} />
+      {panel && <aside className="inspector"><header><div><span className="eyebrow">{panel === "settings" ? "MAKE IT YOURS" : "CONCEPT ATLAS"}</span><h2>{({ settings: "展示设置", perspective: "视角配置", related: "收起的相关关系", details: "概念详情" })[panel]}</h2></div><button aria-label="关闭侧面板" onClick={() => setPanel(null)}>×</button></header>
+        {panel === "settings" ? <ViewSettings adapter={adapter} settings={settings} view={view} index={index} legend={legend} onChange={graph.changeSettings} onError={graph.reportError} />
           : panel === "perspective" ? <PerspectiveControls index={index} settings={settings} onChange={graph.changeSettings} />
           : panel === "related" ? <div className="inspector-body"><p className="muted">这些关系属于完整图谱，可临时展开查看。主轴位置保持稳定。</p>{projection?.related.map(item => {
               const r = index.get(item.relationId);

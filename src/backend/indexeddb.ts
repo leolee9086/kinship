@@ -19,8 +19,8 @@ async function fingerprint(method: Method, input: Request<"apply"> | Request<"up
 export class IndexedDbRepository implements GraphRepository {
   private readonly opening: Promise<IDBDatabase>;
   /** role 是受信任的本地后端选项；远端实现从认证会话得到它。 */
-  constructor(name = "kinship-workspaces", factory: IDBFactory = indexedDB, readonly role: Role = "administrator") {
-    this.opening = openWorkspace(name, factory);
+  constructor(name = "kinship-workspaces", factory: IDBFactory = indexedDB, readonly role: Role = "administrator", seed: "demo" | "blank" = "demo") {
+    this.opening = openWorkspace(name, factory, seed);
   }
   async bootstrap() { return queries.bootstrap(await this.opening, this.role); }
   async previewImport(source: Request<"previewImport">) {

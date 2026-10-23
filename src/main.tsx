@@ -1,13 +1,8 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./ui/App";
-import { createHttpAdapter } from "./adapter/api";
-import { createInternalDispatch } from "./adapter/internalDispatch";
-import { buildDataRouter } from "./backend/routes";
-import { IndexedDbRepository } from "./backend/indexeddb";
+import { ProjectHost } from "./ui/ProjectHost";
+import { createLocalProjects } from "./composition/localProjects";
 
-// 唯一装配点：React → DataAdapter → internal fetch → 路由 → repository。
-// UI 与领域代码都不导入具体存储实现；二进制媒体也没有额外的旁路。
-const repository = new IndexedDbRepository();
-const adapter = createHttpAdapter(createInternalDispatch(buildDataRouter(repository)));
-createRoot(document.getElementById("root")!).render(<React.StrictMode><App adapter={adapter} /></React.StrictMode>);
+// 本地装配可整体替换成远端POST实现；UI不导入任何数据库实现。
+const projects = createLocalProjects();
+createRoot(document.getElementById("root")!).render(<React.StrictMode><ProjectHost adapter={projects.adapter} /></React.StrictMode>);
