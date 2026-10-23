@@ -2,6 +2,7 @@
 import { C, type Concept, type DisplayMode, type GraphSettings, type GraphView, type Participation, type Region } from "./concepts";
 import { ConceptIndex } from "./conceptIndex";
 import { displayMode } from "./perspectives";
+import { explorationExclusions } from "./lifecycle";
 
 export interface ProjectedNode { id: string; depth: number; region: Region; priority: number; via: string; emphasis: number }
 export interface ProjectedLink {
@@ -76,6 +77,9 @@ export function projectGraph(index: ConceptIndex, focus: string, settings: Graph
   index.get(focus);
   const nodes = new Map<string, ProjectedNode>([[focus, { id: focus, depth: 0, region: "right", priority: Infinity, via: focus, emphasis: 1 }]]);
   const distances = new Map<string, number>([[focus, 0]]);
+  const excluded = explorationExclusions(index);
+  // 从已遗忘目录或保留引用明确打开时，焦点自身可见；不展开其被收起的邻域。
+  if (excluded.has(focus)) return { nodes, links: [], view, distances, omitted: 0, budget, related: [] };
   const queue = [focus], expanded = new Set(settings.expandedRelations);
   const visible = new Map<string, { concept: Concept; emphasis: number }>();
   const deferred = new Map<string, { relation: Concept; anchor: string; depth: number; mode: DisplayMode }>();
@@ -85,7 +89,7 @@ export function projectGraph(index: ConceptIndex, focus: string, settings: Graph
     const anchors = folded.get(r.id); if (anchors) anchors.add(anchor); else folded.set(r.id, new Set([anchor]));
   };
   const offer = (id: string, depth: number, region: Region, priority: number, via: string, emphasis: number, traverse: boolean) => {
-    if (id === focus) return;
+    if (id === focus || excluded.has(id)) return;
     const old = nodes.get(id);
     if (!old && nodes.size >= budget) { omitted.add(id); return; }
     // 完整主轴先被构建，背景关系只能补充空位，不能重新定位主轴概念。
@@ -137,6 +141,7 @@ export function projectGraph(index: ConceptIndex, focus: string, settings: Graph
       if (mode === "main" || id === focus) expand(own, id, depth + 1, id === focus ? "main" : mode, id === focus);
     }
     for (const r of index.relations(id)) {
+      if (excluded.has(r.id)) continue;
       const mode = displayMode(index, r, "relations", settings.perspective);
       if (mode === "hidden") continue;
       if (mode !== "main") {

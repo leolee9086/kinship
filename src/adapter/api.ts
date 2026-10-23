@@ -24,6 +24,7 @@ export interface DataAdapter {
   importGraph(params: Request<"importGraph">["params"], options?: CallOptions): Promise<Commit>;
   previewDelete(id: string): Promise<Result<"previewDelete">>;
   deleteConcept(params: Request<"deleteConcept">["params"], options?: CallOptions): Promise<Commit>;
+  setForgotten(id: string, forgotten: boolean, expectedVersion: number, options?: CallOptions): Promise<Commit>;
   execute(command: Apply, options?: CallOptions): Promise<Commit>;
   mutate(change: ConceptMutation, options?: MutationOptions): Promise<ConceptSnapshot>;
   saveSettings(settings: GraphSettings): Promise<GraphSettings>;
@@ -47,6 +48,18 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
   };
   return {
     load, execute,
+    setForgotten: async (id, forgotten, expectedVersion, options) => {
+      await ready();
+      if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) fail("INVALID_REQUEST", "生命周期操作必须使用审阅时的版本", { id });
+      const commandId = options?.commandId ?? newId();
+      const commit = await client.call("apply", { operations: [{ type: forgotten ? "concept.forget" : "concept.restore", id, expectedVersion }] }, { ...options, commandId });
+      const record = commit.changes.put[0];
+      if (commit.changes.put.length !== 1 || record?.concept.id !== id || record.version !== expectedVersion + 1
+        || (record.concept.forgotten === true) !== forgotten || commit.changes.removed.length || commit.changes.presentation || commit.changes.viewState
+        || commit.changes.media?.length || commit.changes.removedMedia?.length)
+        fail("RESULT_UNKNOWN", "生命周期响应与请求目标不一致，请重试原命令", { commandId }, true);
+      replica!.apply(commit); return commit;
+    },
     previewDelete: async id => { await ready(); return client.call("previewDelete", { id }); },
     deleteConcept: async (params, options) => { await ready(); const commit = await client.call("deleteConcept", params, options);
       replica!.apply(commit); return commit; },

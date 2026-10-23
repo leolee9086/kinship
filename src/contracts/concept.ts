@@ -9,6 +9,8 @@ export const RoleConstraintSchema = strictObject({ role: UUIDSchema,
 });
 export const ConceptSchema = strictObject({
   id: UUIDSchema, label: LabelSchema,
+  // 稀疏状态：只有已遗忘记录存true；恢复移除此标记，事实字段保持原样。
+  forgotten: Type.Optional(Type.Literal(true)),
   aliases: Type.Optional(Type.Array(LabelSchema, { maxItems: 256, uniqueItems: true })),
   description: Type.Optional(Type.String({ maxLength: 65536 })),
   types: Type.Array(UUIDSchema, { minItems: 1, maxItems: 128, uniqueItems: true }),

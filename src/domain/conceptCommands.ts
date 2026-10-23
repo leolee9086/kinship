@@ -6,8 +6,10 @@ import { changedFields, sameField } from "../format/fieldDiff";
 export function conceptCommands(concept: Concept, initial: Concept | undefined, expectedVersion: number | null): Operation[] {
   if (!initial) return [{ type: "concept.create", concept }];
   if (expectedVersion === null) throw new Error("已有概念需要打开时的资源版本");
-  const result: Operation[] = [], { id: _nextId, participants: _nextSlots, ...after } = concept;
-  const { participants: _previousSlots, id: _previousId, ...before } = initial;
+  const result: Operation[] = [], { id: _nextId, participants: _nextSlots, forgotten: forgottenAfter, ...after } = concept;
+  const { participants: _previousSlots, id: _previousId, forgotten: forgottenBefore, ...before } = initial;
+  // 文件导入与普通编辑共享同一字段规划；生命周期只能编译为专门原子操作。
+  if (forgottenAfter !== forgottenBefore) result.push({ type: forgottenAfter ? "concept.forget" : "concept.restore", id: concept.id, expectedVersion });
   const fields = changedFields(before, after);
   if (Object.keys(fields).length) result.push({ type: "concept.updateFields", id: concept.id, expectedVersion, fields });
   const unset = (["aliases", "description", "broader", "properties", "schema"] as const).filter(key => before[key] !== undefined && after[key] === undefined);

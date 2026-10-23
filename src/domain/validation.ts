@@ -12,6 +12,8 @@ export function validateConcepts(values: unknown, externalParticipants: Readonly
   const slots = new Set<string>();
   for (const value of values) {
     object(value); uuid(value.id); text(value.label, "概念名称");
+    assert(value.forgotten === undefined || value.forgotten === true, "遗忘标记只能为true或不存在");
+    assert(!coreVocabulary.has(value.id) || value.forgotten === undefined, "不能遗忘通用语义根");
     assert(!ids.has(value.id), "概念 UUID 重复"); ids.add(value.id);
     assert(Array.isArray(value.types) && value.types.length > 0, "概念至少需要一个类型");
     value.types.forEach(uuid);

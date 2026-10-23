@@ -50,6 +50,14 @@ export function useConceptGraph(adapter: DataAdapter) {
     } catch (err) { setError(String(err)); throw err; }
     finally { setPending(n => n - 1); }
   }, [adapter]);
+  const reload = useCallback(async () => {
+    setPending(n => n + 1);
+    try {
+      await saving.current;
+      const data = await adapter.load(); settings.current = data.settings; persisted.current = data.settings; setSnapshot(data);
+    } catch (err) { setError(`重新读取项目失败：${String(err)}`); throw err; }
+    finally { setPending(n => n - 1); }
+  }, [adapter]);
   const commitAndReload = useCallback(async (work: () => Promise<Commit>, label: string) => {
     setPending(n => n + 1);
     try {
@@ -66,5 +74,7 @@ export function useConceptGraph(adapter: DataAdapter) {
     commitAndReload(() => adapter.importGraph(params, options), "导入"), [adapter, commitAndReload]);
   const deleteConcept = useCallback((params: Request<"deleteConcept">["params"], options: CallOptions) =>
     commitAndReload(() => adapter.deleteConcept(params, options), "删除"), [adapter, commitAndReload]);
-  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate, importGraph, deleteConcept };
+  const setForgotten = useCallback((id: string, forgotten: boolean, expectedVersion: number, options: CallOptions) =>
+    commitAndReload(() => adapter.setForgotten(id, forgotten, expectedVersion, options), forgotten ? "遗忘" : "恢复"), [adapter, commitAndReload]);
+  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate, importGraph, deleteConcept, setForgotten, reload };
 }

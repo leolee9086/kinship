@@ -1,0 +1,15 @@
+/* 生命周期筛选属于目录，动作结果留在稳定外壳上，切焦点不会丢失原命令。 */
+.lifecycle-filter { display: flex; align-items: center; gap: 12px; margin: 8px 18px; color: #607761; font-size: 12px; }
+.lifecycle-filter select { flex: 1; min-height: 40px; margin: 0; }
+.lifecycle-controls { margin: 18px 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.lifecycle-controls h4 { margin: 0; }
+.lifecycle-controls p { font-size: 12px; line-height: 1.65; color: #607761; }
+.lifecycle-controls button { min-height: 44px; }
+.lifecycle-notice { position: fixed; z-index: 80; right: 18px; bottom: 18px; width: min(420px, calc(100vw - 36px)); padding: 16px 18px;
+  border: 1px solid #9bb7a7; border-radius: 12px; background: #fbfcf9; box-shadow: 0 8px 40px #233d3026; color: #344f43; }
+.lifecycle-notice p { margin: 0 0 10px; font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.lifecycle-notice code { display: block; font-size: 11px; }
+.lifecycle-notice > div { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.lifecycle-notice button { min-height: 44px; }
+@media (max-width: 760px) { .lifecycle-filter { margin-inline: 16px; } .lifecycle-filter select { min-height: 44px; }
+  .lifecycle-notice { right: 10px; bottom: 10px; width: calc(100vw - 20px); padding: 14px 16px; } }

@@ -3,9 +3,12 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, ty
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import type { DataAdapter } from "../adapter/api";
 import type { Concept, ConceptSnapshot } from "../domain/concepts";
-import { coreVocabulary } from "../domain/coreVocabulary";
 import { ConceptIndex } from "../domain/conceptIndex";
-import { ConceptCatalog } from "../domain/conceptCatalog";
+import { ConceptCatalog, type CatalogLifecycle } from "../domain/conceptCatalog";
+import { explorationExclusions } from "../domain/lifecycle";
+import { ConceptDetails } from "./ConceptDetails";
+import { LifecycleNotice } from "./LifecycleNotice";
+import { useConceptLifecycle } from "./useConceptLifecycle";
 import { projectGraph, relationColor } from "../domain/projection";
 import { PixiGraph, type Camera, type PixiNode } from "./PixiGraph";
 import { buildCurves, type CurveStyle } from "./edges";
@@ -16,7 +19,6 @@ import { layoutConcepts } from "./conceptLayout";
 import { Background } from "./Background";
 import { ConceptEditor, type EditorMode } from "./ConceptEditor";
 import { ViewSettings } from "./ViewSettings";
-import { GraphPackageExport } from "./GraphPackageExport";
 import { GraphPackageImport } from "./GraphPackageImport";
 import { ConceptDeletion } from "./ConceptDeletion";
 import { ConceptLibraryList } from "./ConceptLibraryList";
@@ -25,6 +27,7 @@ import { useWorkspacePanels } from "./useWorkspacePanels";
 import "./app.css";
 import "./workspace.css";
 import "./deletion.css";
+import "./lifecycle.css";
 
 type GraphState = ReturnType<typeof useConceptGraph>;
 interface AppProps { adapter: DataAdapter; projectControls?: (locked: boolean) => ReactNode }
@@ -44,6 +47,9 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const [revealed, setRevealed] = useState<Set<string>>(() => new Set());
   useEffect(() => setRevealed(new Set()), [focus, settings.perspective.presetId]);
   const [query, setQuery] = useState("");
+  const [catalogLifecycle, setCatalogLifecycle] = useState<CatalogLifecycle>("active");
+  const lifecycle = useConceptLifecycle(graph.setForgotten);
+  const excluded = explorationExclusions(index);
   const [tab, setTab] = useState<"instances" | "types" | "roles">("instances");
   const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
   const [help, setHelp] = useState(false);
@@ -75,8 +81,8 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const selected = inspected ? index.byId.get(inspected) : undefined;
   const catalog = useMemo(() => new ConceptCatalog(index), [index]);
   const deferredQuery = useDeferredValue(query);
-  const visible = useMemo(() => catalog.search(tab, deferredQuery, settings.perspective),
-    [catalog, deferredQuery, tab, settings.perspective]);
+  const visible = useMemo(() => catalog.search(tab, deferredQuery, settings.perspective, catalogLifecycle),
+    [catalog, deferredQuery, tab, settings.perspective, catalogLifecycle]);
   const legend = useMemo(() => [...new Map(curves.map(c => [c.colorKey, { key: c.colorKey, label: c.colorLabel, color: c.color }])).values()], [curves]);
 
   const recenter = useCallback(() => setCamera(c => ({ ...c, x: viewport.width / 2, y: viewport.height * 0.46, animate: true })), [viewport]);
@@ -101,7 +107,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.closest("input,textarea,select,button,summary,[contenteditable=true],[role=dialog]")) return;
-      if (importing || deleting) return;
+      if (importing || deleting || lifecycle.locked) return;
       if (event.key === "Escape") { setEditor(null); setHelp(false); setPanel(null); setLibrary(false); return; }
       if (editor || help) return;
       if (event.key === "/") { event.preventDefault(); setLibrary(true); requestAnimationFrame(() => search.current?.focus()); return; }
@@ -137,7 +143,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const relationCount = index.concepts.filter(c => !!c.participants).length;
 
   return <main ref={workspace} tabIndex={-1} className="workspace">
-    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing || Boolean(deleting))} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
+    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing || Boolean(deleting) || lifecycle.locked)} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
       onLibrary={() => setLibrary(value => !value)} onSettings={() => setPanel(value => value === "settings" ? null : "settings")}
       onImport={() => setImporting(true)} onHelp={() => setHelp(true)} />
     {graph.error && <div className="error-banner" role="alert"><span>{graph.error}</span><button onClick={graph.clearError} aria-label="关闭错误提示">×</button></div>}
@@ -145,6 +151,8 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       <aside className={`concept-library ${library ? "is-open" : ""}`}>
         <div className="library-heading"><span className="eyebrow">YOUR CONCEPT ATLAS</span><h2>概念图谱 <span>{index.concepts.length}</span></h2></div>
         <label className="search-field"><span>⌕</span><input ref={search} aria-label="搜索概念" placeholder="搜索概念、类型或别名" value={query} onChange={e => setQuery(e.target.value)} /><kbd>/</kbd></label>
+        <label className="lifecycle-filter">显示<select aria-label="概念生命周期" value={catalogLifecycle} onChange={event => setCatalogLifecycle(event.target.value as CatalogLifecycle)}>
+          <option value="active">当前概念</option><option value="forgotten">已遗忘</option><option value="all">全部</option></select></label>
         <div className="library-tabs" role="group" aria-label="概念类别">{([['instances', '概念'], ['types', '类型'], ['roles', '角色']] as const).map(([id, text]) => <button key={id} className={tab === id ? "active" : ""} onClick={() => setTab(id)}>{text}</button>)}</div>
         <ConceptLibraryList concepts={visible} index={index} focus={focus} onChoose={choose} category={tab === "types" ? "类型概念" : tab === "roles" ? "角色概念" : "实例概念"} />
         <div className="library-footer"><button className="primary" onClick={() => setEditor({ mode: "concept" })}>＋ 新建概念</button><button onClick={() => setEditor({ mode: "relation" })}>新建关系</button>
@@ -163,7 +171,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
           : <div className="graph-empty"><h2>从一个概念开始</h2><p>在概念库中选择焦点，或创建新的概念。</p><button className="primary" onClick={() => setLibrary(true)}>打开概念库</button></div>}
         <div className="region-caption up">上方</div><div className="region-caption down">下方</div>
         <div className="region-caption left">左侧</div><div className="region-caption right">右侧</div>
-        {focus && <div className="focus-card"><span className="eyebrow">CURRENT FOCUS</span><strong>{index.get(focus).label}</strong><span>{perspective.description}</span>
+        {focus && <div className="focus-card"><span className="eyebrow">CURRENT FOCUS</span><strong>{index.get(focus).label}</strong><span>{index.get(focus).forgotten ? "已遗忘：当前仅查看此概念，可在详情恢复。" : excluded.has(focus) ? "参与引用包含已遗忘概念，画布暂不展开此关系。" : perspective.description}</span>
           {!!projection?.related.length && <button className="related-trigger" onClick={() => setPanel("related")}>相关 · {projection.related.length} ↗</button>}
         </div>}
         <div className="canvas-controls"><button aria-label="缩小" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.04, c.zoom / 1.2) }))}>−</button><output>{Math.round(camera.zoom * 100)}%</output><button aria-label="放大" onClick={() => setCamera(c => ({ ...c, zoom: Math.min(4, c.zoom * 1.2) }))}>＋</button><button onClick={recenter}>回到焦点</button><button onClick={fit}>适应邻域</button></div>
@@ -178,19 +186,15 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
                 <button onClick={() => { setInspected(r.id); setPanel("details"); }}>查看详情</button>
                 <button className="primary" onClick={() => { setRevealed(old => new Set([...old, r.id])); setInspected(r.id); }}>临时展开</button></div></section>;
             })}{!projection?.related.length && <p>当前没有收起的关系。</p>}</div>
-          : selected ? <div className="inspector-body"><span className="type-badge">{index.typeLabel(selected)}</span><h3>{selected.label}</h3><p>{selected.description || "可以添加说明，记录这个概念的含义与背景。"}</p>
-            <div className="detail-actions"><button className="primary" onClick={() => choose(selected.id)}>作为焦点</button><button onClick={() => openEditor(selected)}>编辑</button></div>
-            {selected.participants && <section><h4>参与概念 · {selected.participants.length}</h4>{selected.participants.map(p => <button className="participant-link" key={p.id} onClick={() => choose(p.concept)}><span>{index.roleLabel(p.role)}</span><strong>{index.get(p.concept).label}</strong><span>↗</span></button>)}
-              <button onClick={() => toggleExpanded(selected.id)}>{settings.expandedRelations.includes(selected.id) ? "压缩关系表示" : "展开为关系节点"}</button><p className="muted">多元关系保留枢纽；二元关系可以在线与节点间切换，身份不变。</p></section>}
-            {!!index.relations(selected.id).length && <section><h4>参与的关系 · {index.relations(selected.id).length}</h4>{index.relations(selected.id).map(r => <button className="related-item" key={r.id} onClick={() => { setInspected(r.id); }}>{r.label}<small>{index.typeLabel(r)}</small></button>)}</section>}
-            <section><h4>类型与上级</h4>{[...selected.types, ...(selected.broader ?? [])].map((id, i) => <button className="inline-link" key={`${id}:${i}`} onClick={() => choose(id)}>{index.get(id).label} ↗</button>)}</section>
-            {selected.properties && Object.entries(selected.properties).map(([key, value]) => <p className="property" key={key}><span>{key}</span><strong>{typeof value === "string" ? value : JSON.stringify(value)}</strong></p>)}
-            <GraphPackageExport key={selected.id} adapter={adapter} conceptId={selected.id} disabled={graph.pending > 0} onError={graph.reportError} />
-            <details><summary>概念 UUID</summary><code className="uuid">{selected.id}</code></details>
-            <button className="danger-text" disabled={graph.pending > 0 || coreVocabulary.has(selected.id)} onClick={() => setDeleting(selected.id)}>检查删除影响…</button>
-          </div> : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
+          : selected ? <ConceptDetails adapter={adapter} index={index} concept={selected} version={snapshot.conceptVersions[selected.id]} busy={graph.pending > 0}
+            locked={lifecycle.locked} expanded={settings.expandedRelations.includes(selected.id)} actions={{ focus: choose, edit: openEditor, inspect: setInspected,
+              toggleExpanded, deleteConcept: setDeleting, lifecycle: lifecycle.change, reportError: graph.reportError }} />
+            : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
       </aside>}
     </div>
+    <LifecycleNotice action={lifecycle} refreshing={graph.pending > 0} onRefresh={() => { void graph.reload().then(() => { lifecycle.dismiss(); requestAnimationFrame(() => workspace.current?.focus()); })
+      .catch(() => { /* reload 已经通过工作区错误栏报告失败，保留原操作反馈。 */ }); }}
+      onDismiss={() => { lifecycle.dismiss(); requestAnimationFrame(() => workspace.current?.focus()); }} />
     {deleting && <ConceptDeletion key={deleting} adapter={adapter} id={deleting} onDelete={graph.deleteConcept} onClose={() => setDeleting(null)} onDeleted={closeDeleted} />}
     {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
     {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}

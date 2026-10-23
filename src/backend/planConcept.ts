@@ -4,6 +4,7 @@ import { fail } from "../contracts/errors";
 import type { Concept, Participation } from "../domain/concepts";
 import type { IdentityRecord } from "./workspaceDb";
 import { checkVersion } from "./versions";
+import { coreVocabulary } from "../domain/coreVocabulary";
 
 type Removal = { id: string; version: number };
 export interface ConceptChange { before?: ConceptRecord; put?: ConceptRecord; removed?: Removal }
@@ -15,6 +16,7 @@ export function planConcept(op: Operation, records: ReadonlyMap<string, ConceptR
     return { put: { concept: op.concept, version: 1 } };
   }
   if (op.type !== "concept.updateFields" && op.type !== "concept.unsetFields" && op.type !== "concept.deleteUnreferenced"
+    && op.type !== "concept.forget" && op.type !== "concept.restore"
     && op.type !== "relation.addParticipation" && op.type !== "relation.updateParticipation"
     && op.type !== "relation.removeParticipation" && op.type !== "relation.moveParticipation") return null;
   const old = records.get(op.id);
@@ -22,7 +24,13 @@ export function planConcept(op: Operation, records: ReadonlyMap<string, ConceptR
   if (!old) fail("NOT_FOUND", "概念不存在", { id: op.id });
   if (op.type === "concept.deleteUnreferenced") return { before: old, removed: { id: op.id, version: old.version + 1 } };
   let next: Concept;
-  if (op.type === "concept.updateFields") next = { ...old.concept, ...op.fields };
+  if (op.type === "concept.forget" || op.type === "concept.restore") {
+    if (coreVocabulary.has(op.id)) fail("DOMAIN_CONSTRAINT", "通用语义根不能遗忘", { id: op.id });
+    const forgotten = op.type === "concept.forget";
+    if ((old.concept.forgotten === true) === forgotten) fail("DOMAIN_CONSTRAINT", forgotten ? "概念已经遗忘" : "概念未被遗忘", { id: op.id });
+    next = { ...old.concept };
+    if (forgotten) next.forgotten = true; else delete next.forgotten;
+  } else if (op.type === "concept.updateFields") next = { ...old.concept, ...op.fields };
   else if (op.type === "concept.unsetFields") {
     next = { ...old.concept };
     for (const key of op.fields) delete next[key];

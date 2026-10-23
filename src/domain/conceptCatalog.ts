@@ -4,6 +4,7 @@ import type { ConceptIndex } from "./conceptIndex";
 import { displayMode } from "./perspectives";
 
 export type CatalogCategory = "instances" | "types" | "roles";
+export type CatalogLifecycle = "active" | "forgotten" | "all";
 interface CatalogEntry { concept: Concept; category: CatalogCategory; text: string }
 type Groups = Record<CatalogCategory, CatalogEntry[]>;
 const emptyGroups = (): Groups => ({ instances: [], types: [], roles: [] });
@@ -46,10 +47,10 @@ export class ConceptCatalog {
     return result;
   }
 
-  search(category: CatalogCategory, query: string, perspective: PerspectiveSettings): Concept[] {
+  search(category: CatalogCategory, query: string, perspective: PerspectiveSettings, lifecycle: CatalogLifecycle = "active"): Concept[] {
     const terms = searchable(query).trim().split(/\s+/).filter(Boolean);
-    const source = this.groups(perspective)[category];
-    return terms.length ? source.filter(entry => terms.every(term => entry.text.includes(term))).map(entry => entry.concept)
-      : source.map(entry => entry.concept);
+    return this.groups(perspective)[category].filter(entry =>
+      (lifecycle === "all" || (entry.concept.forgotten === true) === (lifecycle === "forgotten"))
+      && terms.every(term => entry.text.includes(term))).map(entry => entry.concept);
   }
 }
