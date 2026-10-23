@@ -205,7 +205,10 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
     {deleting && <ConceptDeletion key={deleting} adapter={adapter} id={deleting} onDelete={graph.deleteConcept} onClose={() => setDeleting(null)} onDeleted={closeDeleted} />}
     {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
     {reviewing && <HistoryReview adapter={adapter} onClose={() => { setReviewing(false); requestAnimationFrame(() => workspace.current?.focus()); }} />}
-    {bodyEditor && <Suspense fallback={<div className="modal-scrim"><p role="status">正在打开正文编辑器…</p></div>}><BodyEditor initial={bodyEditor.initial} version={bodyEditor.version} onSave={graph.saveBody} onClose={() => setBodyEditor(null)} /></Suspense>}
+    {bodyEditor && <Suspense fallback={<div className="modal-scrim"><p role="status">正在打开正文编辑器…</p></div>}><BodyEditor initial={bodyEditor.initial} version={bodyEditor.version} onSave={graph.saveBody} onClose={refresh => {
+      setBodyEditor(null);
+      if (refresh) void graph.reload().catch(() => { /* reload通过工作区错误栏报告失败。 */ });
+    }} /></Suspense>}
     {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}
     {help && <div className="modal-scrim" onClick={() => setHelp(false)}><section className="help-dialog" role="dialog" aria-modal="true" aria-label="键盘帮助" onClick={e => e.stopPropagation()}><button className="close" onClick={() => setHelp(false)}>关闭</button><span className="eyebrow">FIND YOUR FLOW</span><h2>用键盘探索概念</h2><p>方向键沿屏幕方位切换焦点；Backspace 返回上一焦点。</p><dl><dt>/</dt><dd>搜索概念</dd><dt>Enter</dt><dd>编辑焦点</dd><dt>N</dt><dd>新建概念</dd><dt>R</dt><dd>新建关系</dd><dt>?</dt><dd>显示帮助</dd><dt>Esc</dt><dd>关闭面板</dd></dl><p>拖动平移，滚轮或双指缩放。点击关系线检查关系概念。</p></section></div>}
   </main>;

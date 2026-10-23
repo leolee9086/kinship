@@ -14,7 +14,7 @@ import "prosemirror-view/style/prosemirror.css";
 import "./body.css";
 export function BodyEditor({ initial, version, onSave, onClose }: {
   initial: Concept; version: number;
-  onSave(initial: Concept, body: DocumentBody, version: number, options: CallOptions): Promise<Commit>; onClose(): void;
+  onSave(initial: Concept, body: DocumentBody, version: number, options: CallOptions): Promise<Commit>; onClose(refresh: boolean): void;
 }) {
   const [base, setBase] = useState({ concept: initial, version });
   const [body, setBody] = useState(() => initial.body ?? emptyDocument());
@@ -28,7 +28,7 @@ export function BodyEditor({ initial, version, onSave, onClose }: {
   const current = useRef({ locked, save: () => {}, changed: (_body: DocumentBody) => {} });
   const close = () => {
     if (running.current || unknown) return;
-    if (!dirty || window.confirm("正文有未保存的修改，确定放弃并关闭？")) onClose();
+    if (!dirty || window.confirm("正文有未保存的修改，确定放弃并关闭？")) onClose(conflict);
   };
   const dialog = useDialogFocus(close);
   const save = async () => {
