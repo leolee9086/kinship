@@ -41,6 +41,15 @@ export function scopedQuery<T>(db: IDBDatabase, workspaceId: string, stores: str
     tx.onabort = () => reject(cause ?? tx.error); tx.onerror = () => { cause ??= tx.error; };
   });
 }
+export function readConcept(db: IDBDatabase, workspaceId: string, id: string): Promise<QueryValue<ConceptRecord>> {
+  return scopedQuery(db, workspaceId, [S.concepts], (tx, _state, done, abort) => {
+    const request = tx.objectStore(S.concepts).get(id);
+    request.onsuccess = () => {
+      try { if (!request.result) fail("NOT_FOUND", "概念不存在", { id }); done(request.result as ConceptRecord); }
+      catch (cause) { abort(cause); }
+    };
+  });
+}
 export function commandStatus(db: IDBDatabase, workspaceId: string, commandId: string): Promise<QueryValue<Result<"commandStatus">>> {
   return scopedQuery(db, workspaceId, [S.commands], (tx, state, done) => {
     const request = tx.objectStore(S.commands).get([state.actorId, commandId]);

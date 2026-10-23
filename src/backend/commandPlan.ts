@@ -10,6 +10,7 @@ import { combineSettings } from "../domain/presentationState";
 import { validatePresentationReferences } from "../domain/presentationValidation";
 import type { IdentityRecord } from "./workspaceDb";
 import { planConcept } from "./planConcept";
+import { planDocument } from "./planDocument";
 import { planSettingsBatch } from "./planSettings";
 import { guardBodyIdentities } from "./bodyIdentity";
 
@@ -23,7 +24,7 @@ export function planCommand(input: PlanInput, command: Apply): CommandPlan {
   const put = new Map<string, ConceptRecord>(), removed: Delta["removed"] = [], before: CommandPlan["before"] = { concepts: [] };
   const touched = new Set<string>(), exclusive = new Set<string>(), media = new Set<string>();
   for (const op of command.operations) {
-    const change = planConcept(op, drafts, identities);
+    const change = planDocument(op, drafts) ?? planConcept(op, drafts, identities);
     if (change) {
       const id = change.put?.concept.id ?? change.removed!.id;
       const unique = op.type === "concept.create" || op.type === "concept.deleteUnreferenced";

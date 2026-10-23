@@ -7,9 +7,10 @@ import { strictObject, UUIDSchema, VersionSchema } from "./primitives";
 import { conceptOperations } from "./conceptOperations";
 import { settingsOperations } from "./settingsOperations";
 import { ImportProvenanceSchema } from "./importPreview";
+import { documentOperations } from "./documentOperations";
 
 export const OperationSchema = Type.Union([
-  ...conceptOperations, ...settingsOperations,
+  ...conceptOperations, ...documentOperations, ...settingsOperations,
   strictObject({ type: Type.Literal("media.publish"), data: MediaInfoSchema }),
   strictObject({ type: Type.Literal("media.remove"), id: UUIDSchema, expectedVersion: VersionSchema }),
 ]);

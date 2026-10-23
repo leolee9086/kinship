@@ -27,6 +27,10 @@ export class IndexedDbRepository implements GraphRepository {
     this.opening = openWorkspace(name, factory, seed);
   }
   async bootstrap() { return queries.bootstrap(await this.opening, this.role); }
+  async readConcept(source: Request<"readConcept">) {
+    const input = parse(registry.readConcept.request, source);
+    return queries.readConcept(await this.opening, input.workspaceId, input.params.id);
+  }
   async previewImport(source: Request<"previewImport">) {
     return queryImportPreview(await this.opening, parse(registry.previewImport.request, source));
   }

@@ -5,6 +5,8 @@ import type { GraphPackage } from "../contracts/graphPackage";
 import type { ImportPreview } from "../contracts/importPreview";
 import type { HistoryConcept, HistoryPage } from "../contracts/history";
 import type { DocumentBody } from "../contracts/document";
+import type { TextFile, CrdtFile } from "../sections/adapter";
+import { createSectionFiles } from "./sectionFiles";
 import { verifyBodyCommit } from "./bodyResponse";
 import { fail } from "../contracts/errors";
 import { newId, type Concept, type ConceptMutation, type ConceptSnapshot, type GraphSettings, type MediaInfo } from "../domain/concepts";
@@ -21,6 +23,9 @@ export interface MutationOptions extends CallOptions {
 }
 export interface DataAdapter {
   load(): Promise<ConceptSnapshot>;
+  readConcept(id: string): Promise<Result<"readConcept">>;
+  textFile(conceptId: string, fileId: string): TextFile;
+  crdtFile(conceptId: string, fileId: string): CrdtFile;
   exportGraph(params: Request<"exportGraph">["params"]): Promise<GraphPackage>;
   previewImport(value: GraphPackage): Promise<ImportPreview>;
   previewImportFile(file: File): Promise<Result<"previewImportFile">>;
@@ -52,8 +57,10 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
   const execute = async (command: Apply, options?: CallOptions) => {
     await ready(); const commit = await client.call("apply", command, options); replica!.apply(commit); return commit;
   };
+  const sections = createSectionFiles(client, ready, commit => replica!.apply(commit));
   return {
-    load, execute,
+    load, execute, ...sections,
+    readConcept: async id => { await ready(); return client.call("readConcept", { id }); },
     historyList: async (params, options) => { await ready(); return client.call("historyList", params, options); },
     historyConcept: async (eventId, conceptId, options) => { await ready(); return client.call("historyConcept", { eventId, conceptId }, options); },
     setForgotten: async (id, forgotten, expectedVersion, options) => {

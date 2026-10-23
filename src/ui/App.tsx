@@ -205,7 +205,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
     {deleting && <ConceptDeletion key={deleting} adapter={adapter} id={deleting} onDelete={graph.deleteConcept} onClose={() => setDeleting(null)} onDeleted={closeDeleted} />}
     {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
     {reviewing && <HistoryReview adapter={adapter} onClose={() => { setReviewing(false); requestAnimationFrame(() => workspace.current?.focus()); }} />}
-    {bodyEditor && <Suspense fallback={<div className="modal-scrim"><p role="status">正在打开正文编辑器…</p></div>}><BodyEditor initial={bodyEditor.initial} version={bodyEditor.version} onSave={graph.saveBody} onClose={refresh => {
+    {bodyEditor && <Suspense fallback={<div className="modal-scrim"><p role="status">正在打开正文编辑器…</p></div>}><BodyEditor initial={bodyEditor.initial} version={bodyEditor.version} adapter={adapter} onClose={refresh => {
       setBodyEditor(null);
       if (refresh) void graph.reload().catch(() => { /* reload通过工作区错误栏报告失败。 */ });
     }} /></Suspense>}

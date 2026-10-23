@@ -17,7 +17,7 @@ export function readPlanInput(tx: IDBTransaction, state: WorkspaceState, input: 
       const result: PlanInput = { concepts: [], identities: [], presentation, viewState };
       let remaining = 2;
       const complete = () => { if (--remaining === 0) done(result); };
-      if (input.operations.some(op => op.type.startsWith("concept.") || op.type.startsWith("relation."))) {
+      if (input.operations.some(op => op.type.startsWith("concept.") || op.type.startsWith("relation.") || op.type.startsWith("document."))) {
         const concepts = tx.objectStore(S.concepts).getAll(), identities = tx.objectStore(S.identities).getAll();
         concepts.onsuccess = () => { result.concepts = concepts.result as ConceptRecord[]; complete(); };
         identities.onsuccess = () => { result.identities = identities.result as IdentityRecord[]; complete(); };

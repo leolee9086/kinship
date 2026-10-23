@@ -24,6 +24,8 @@ export const EventPageSchema = strictObject({ events: Type.Array(CommitSchema, {
 export const registry = {
   bootstrap: { path: "/rpc/v1/workspace/bootstrap", kind: "query", role: "guest",
     request: strictObject({ ...base, params: strictObject({}) }), result: BootstrapSchema },
+  readConcept: { path: "/rpc/v1/concepts/read", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: strictObject({ id: UUIDSchema }) }), result: ConceptRecordSchema },
   exportGraph: { path: "/rpc/v1/graph/export", kind: "query", role: "guest",
     request: strictObject({ ...scoped, params: ExportGraphParamsSchema }), result: GraphPackageSchema },
   previewImportFile: { path: "/rpc/v1/graph/import/file", kind: "query", role: "guest",

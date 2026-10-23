@@ -5,6 +5,7 @@ import type { Concept, Participation } from "../domain/concepts";
 import type { IdentityRecord } from "./workspaceDb";
 import { checkVersion } from "./versions";
 import { coreVocabulary } from "../domain/coreVocabulary";
+import { guardStructureChange } from "./planDocument";
 
 type Removal = { id: string; version: number };
 export interface ConceptChange { before?: ConceptRecord; put?: ConceptRecord; removed?: Removal }
@@ -30,7 +31,10 @@ export function planConcept(op: Operation, records: ReadonlyMap<string, ConceptR
     if ((old.concept.forgotten === true) === forgotten) fail("DOMAIN_CONSTRAINT", forgotten ? "概念已经遗忘" : "概念未被遗忘", { id: op.id });
     next = { ...old.concept };
     if (forgotten) next.forgotten = true; else delete next.forgotten;
-  } else if (op.type === "concept.updateFields") next = { ...old.concept, ...op.fields };
+  } else if (op.type === "concept.updateFields") {
+    if (op.fields.body !== undefined) guardStructureChange(old.concept.body, op.fields.body);
+    next = { ...old.concept, ...op.fields };
+  }
   else if (op.type === "concept.unsetFields") {
     next = { ...old.concept };
     for (const key of op.fields) delete next[key];

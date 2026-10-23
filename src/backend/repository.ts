@@ -6,6 +6,7 @@ import type { QueryValue } from "./workspaceQueries";
 export interface GraphRepository {
   readonly role: Role;
   bootstrap(): Promise<Bootstrap>;
+  readConcept(input: Request<"readConcept">): Promise<QueryValue<Result<"readConcept">>>;
   apply(input: Request<"apply">): Promise<Commit>;
   previewDelete(input: Request<"previewDelete">): Promise<QueryValue<Result<"previewDelete">>>;
   deleteConcept(input: Request<"deleteConcept">): Promise<Commit>;

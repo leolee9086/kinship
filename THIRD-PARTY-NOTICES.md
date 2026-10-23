@@ -10,6 +10,6 @@ The current demo concepts and relationships are fictional, created in this repos
 
 Dependencies are obtained through pnpm and retain their original copyright notices and licenses. In particular, [sac-path-router](https://github.com/leolee9086/sac-path-router) is a separately maintained MIT-licensed package, referenced from a sibling checkout during current development.
 
-The editor uses the MIT-licensed ProseMirror packages and Zod. Its command dispatch uses the local S-Forge `calibur-router` package, whose metadata declares MIT; an exact archive containing its source and compiled package entry points is included with [provenance and reproduction instructions](./vendor/README.md). The archived source headers and README are preserved.
+The section editors use MIT-licensed Vditor (a separately maintained Kinship fork), CodeMirror 6, Yjs, y-codemirror.next, and Zod. Vditor's upstream copyright and MIT license are retained; the exact fork archive is pinned, and its license is copied with self-hosted browser assets during builds. File command dispatch uses the local S-Forge `calibur-router` package, whose metadata declares MIT. Both vendored archives have [source revisions, archive checksums, and reproduction instructions](./vendor/README.md). The archived source headers and author attribution are preserved.
 
 The repository does not vendor `node_modules` or application distribution bundles. Before distributing a built bundle, preserve the applicable dependency license notices with that distribution.
