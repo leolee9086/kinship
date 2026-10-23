@@ -6,6 +6,7 @@ import { parse } from "../contracts/validate";
 import { newId } from "../domain/concepts";
 import { sha256 } from "../format/digest";
 import type { Dispatch, TransportResponse } from "./transport";
+import { verifyPackageResponse } from "./packageResponse";
 
 export interface CallOptions { commandId?: string; file?: File; signal?: AbortSignal }
 export type CallResult<M extends Method> = M extends "mediaContent" ? Blob : Result<M>;
@@ -45,6 +46,7 @@ export class RpcClient {
       if (result.workspaceId !== envelope.context.workspaceId || result.revision !== envelope.context.revision) fail("INTERNAL_ERROR", "工作区快照上下文不一致");
       this.workspaceId = result.workspaceId;
     }
+    if (name === "exportGraph") await verifyPackageResponse(parse(registry.exportGraph.result, envelope.result, "INTERNAL_ERROR"), envelope.context);
     return envelope.result as CallResult<M>;
   }
   private async binary(requestId: string, params: unknown, response: TransportResponse): Promise<Blob> {

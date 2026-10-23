@@ -1,5 +1,7 @@
 /** 前端数据门面：编辑草稿编译成带资源版本的字段命令，界面不接触存储。 */
 import type { Apply, Commit, Operation, ViewStateRecord } from "../contracts/commands";
+import type { Request } from "../contracts/rpc";
+import type { GraphPackage } from "../contracts/graphPackage";
 import { fail } from "../contracts/errors";
 import { newId, type Concept, type ConceptMutation, type ConceptSnapshot, type GraphSettings, type MediaInfo } from "../domain/concepts";
 import { sha256 } from "../format/digest";
@@ -15,6 +17,7 @@ export interface MutationOptions extends CallOptions {
 }
 export interface DataAdapter {
   load(): Promise<ConceptSnapshot>;
+  exportGraph(params: Request<"exportGraph">["params"]): Promise<GraphPackage>;
   execute(command: Apply, options?: CallOptions): Promise<Commit>;
   mutate(change: ConceptMutation, options?: MutationOptions): Promise<ConceptSnapshot>;
   saveSettings(settings: GraphSettings): Promise<GraphSettings>;
@@ -38,6 +41,7 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
   };
   return {
     load, execute,
+    exportGraph: async params => { await ready(); return client.call("exportGraph", params); },
     mutate: async (change, options) => {
       const current = (await ready()).snapshot, operations: Operation[] = [], records = new Map(current.concepts.map(c => [c.id, c]));
       for (const concept of change.put ?? []) {

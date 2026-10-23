@@ -5,7 +5,8 @@ import { assert, object, text, uuid } from "./inputValidation";
 import { validatePresentation } from "./presentationValidation";
 import { coreVocabulary } from "./coreVocabulary";
 
-export function validateConcepts(values: unknown): Concept[] {
+/** 外部集合仅供显式边界文件校验参与对象；数据库提交始终使用空集合。 */
+export function validateConcepts(values: unknown, externalParticipants: ReadonlySet<string> = new Set()): Concept[] {
   assert(Array.isArray(values), "概念集合必须是数组");
   const ids = new Set<string>();
   const slots = new Set<string>();
@@ -48,14 +49,14 @@ export function validateConcepts(values: unknown): Concept[] {
       }
     }
   }
-  for (const slot of slots) assert(!ids.has(slot), "参与槽不能复用概念 UUID");
+  for (const slot of slots) assert(!ids.has(slot) && !externalParticipants.has(slot), "参与槽不能复用概念 UUID");
   const concepts = values as Concept[];
   const index = new ConceptIndex(concepts);
   for (const c of concepts) {
     for (const t of c.types) assert(index.byId.has(t) && index.isType(index.get(t)), `类型引用无效：${t}`);
     for (const parent of c.broader ?? []) assert(index.byId.has(parent), `上级概念不存在：${parent}`);
     for (const p of c.participants ?? []) {
-      assert(index.byId.has(p.concept), `参与概念不存在：${p.concept}`);
+      assert(index.byId.has(p.concept) || externalParticipants.has(p.concept), `参与概念不存在：${p.concept}`);
       assert(index.byId.has(p.role) && index.isRole(index.get(p.role)), `角色引用无效：${p.role}`);
     }
     for (const constraint of c.schema?.roles ?? []) assert(index.byId.has(constraint.role) && index.isRole(index.get(constraint.role)), "结构声明引用了非法角色");

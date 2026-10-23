@@ -7,6 +7,7 @@ import { parse } from "../contracts/validate";
 import { readEnvelope, requestIdentity, success, failure } from "./rpcBoundary";
 import { readJSON, readUpload } from "./requestBody";
 import type { GraphRepository } from "./repository";
+import { queryGraphPackage } from "./packageQuery";
 
 interface Reply { result: unknown; workspaceId: string; revision: number; binary?: Blob }
 const rank: Record<Role, number> = { guest: 0, collaborator: 1, administrator: 2 };
@@ -37,6 +38,7 @@ export function buildDataRouter(repository: GraphRepository) {
   };
   bind("bootstrap", async () => { const result = await repository.bootstrap();
     return { result, workspaceId: result.workspaceId, revision: result.revision }; });
+  bind("exportGraph", input => queryGraphPackage(repository, input));
   bind("apply", async input => { const result = await repository.apply(input);
     return { result, workspaceId: input.workspaceId, revision: result.revision }; });
   bind("commandStatus", async input => { const reply = await repository.commandStatus(input); return { result: reply.value, ...reply.context }; });

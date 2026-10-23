@@ -33,7 +33,9 @@ UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、�
 
 概念集合文件的[严格校验和规范输出](./src/format/concepts.ts)接受显式提供的依赖，以 UUID 校验引用、重复身份和槽位。五个通用语义根由内核识别，其余人物、角色和领域分类都属于模板内容，未被引用的模板分类可以正常删除。赋色支持关系分类、第一/第二参与角色及前两角色对，按各自分类路径和深度计算；多继承按 UUID 选择确定路径。旧开发枚举 `parent-role` / `child-role` 已移除，不转换或回退为新轴。
 
-当前 bootstrap 仍读取完整概念快照，业务图编辑仍执行全图约束检查；分页目录、局部投影、生命周期与历史回滚界面、文件导入导出、正文编辑器、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件将作为显式导入导出目标，普通导入保留 UUID；现有展示模板编解码不代表完整图谱包已经实现。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
+概念详情可**预览并下载局部 JSON 图谱包**：选当前概念/关系作为入口，带必要定义，选择补齐参与对象或保留外部 UUID 引用。完整关系的全部参与槽原样保留，嵌套关系按出向引用补齐，不扩展参与者的其他关系。`entrypoints`、`selected`、`dependencies`、`externals`、来源修订和覆盖声明均明确，逐记录 SHA-256 摘要在客户端再次校验。默认上限 1000 条概念、1 MiB，超预算明确报错；仅导出概念与关系，正文、媒体、展示和历史明确未包含。入口是 `DataAdapter.exportGraph → POST /rpc/v1/graph/export`，不会在 UI 中直接读取数据库。契约见[图谱包模式](./src/contracts/graphPackage.ts)，闭包规则见[局部选择](./src/domain/packageSelection.ts)。
+
+当前 bootstrap 与导出取数仍读取完整概念快照，业务图编辑仍执行全图约束检查；分页目录、后端局部投影、生命周期与历史回滚界面、图谱包导入、SQLite 容器、正文编辑器、Kramdown 编解码、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件作为显式导入导出目标，普通导入将保留 UUID；当前导出不代表完整往返已实现。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
 
 项目设计和开发记录在思源维护：[编辑器、语义内链与原子 RPC 方案](siyuan://blocks/20261023012229-e9zn1zp)、[RPC 契约与事务协议](siyuan://blocks/20261023032258-aa34xhy)、[JSON/Kramdown 与局部图谱包设计](siyuan://blocks/20261023025308-dv16evk)、[开发进度和验收记录](siyuan://blocks/20261023011959-53mrjex)。
 

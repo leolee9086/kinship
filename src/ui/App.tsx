@@ -15,6 +15,7 @@ import { layoutConcepts } from "./conceptLayout";
 import { Background } from "./Background";
 import { ConceptEditor, type EditorMode } from "./ConceptEditor";
 import { ViewSettings } from "./ViewSettings";
+import { GraphPackageExport } from "./GraphPackageExport";
 import { ConceptLibraryList } from "./ConceptLibraryList";
 import { useConceptGraph } from "./useConceptGraph";
 import { useWorkspacePanels } from "./useWorkspacePanels";
@@ -183,6 +184,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
             {!!index.relations(selected.id).length && <section><h4>参与的关系 · {index.relations(selected.id).length}</h4>{index.relations(selected.id).map(r => <button className="related-item" key={r.id} onClick={() => { setInspected(r.id); }}>{r.label}<small>{index.typeLabel(r)}</small></button>)}</section>}
             <section><h4>类型与上级</h4>{[...selected.types, ...(selected.broader ?? [])].map((id, i) => <button className="inline-link" key={`${id}:${i}`} onClick={() => choose(id)}>{index.get(id).label} ↗</button>)}</section>
             {selected.properties && Object.entries(selected.properties).map(([key, value]) => <p className="property" key={key}><span>{key}</span><strong>{typeof value === "string" ? value : JSON.stringify(value)}</strong></p>)}
+            <GraphPackageExport key={selected.id} adapter={adapter} conceptId={selected.id} disabled={graph.pending > 0} onError={graph.reportError} />
             <details><summary>概念 UUID</summary><code className="uuid">{selected.id}</code></details>
             <button className="danger-text" disabled={graph.pending > 0 || coreVocabulary.has(selected.id)} onClick={() => void deleteSelected()}>删除此概念</button>
           </div> : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
