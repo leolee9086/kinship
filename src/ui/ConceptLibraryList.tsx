@@ -28,6 +28,6 @@ export function ConceptLibraryList({ concepts, index, focus, onChoose, category 
       <span><strong>{c.label}</strong><small>{c.forgotten ? "已遗忘 · " : excluded.has(c.id) ? "探索已收起 · " : ""}{index.typeLabel(c)}</small></span><span className="row-arrow">↗</span>
     </button>)}
     <div style={{ height: after }} aria-hidden="true" />
-    {!concepts.length && <p className="empty-state">没有匹配概念。可以创建一个新的概念。</p>}
+    {!concepts.length && <p className="empty-state">没有匹配概念。可调整搜索词、类别或显示范围。</p>}
   </div>;
 }
