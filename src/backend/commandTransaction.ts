@@ -11,7 +11,7 @@ import { STORES as S, WRITE_STORES, type HistoryEntry, type IdentityRecord,
   type SavedCommand, type WorkspaceState } from "./workspaceDb";
 
 export interface CommandExecution { workspaceId: string; commandId: string; fingerprint: string; params: Apply; role: Role;
-  attachment?: StoredMedia }
+  attachment?: StoredMedia; expectedRevision?: number; importSource?: Commit["importSource"] }
 export function executeCommand(db: IDBDatabase, input: CommandExecution): Promise<Commit> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(WRITE_STORES, "readwrite", { durability: "strict" });
@@ -31,6 +31,8 @@ export function executeCommand(db: IDBDatabase, input: CommandExecution): Promis
               if (saved.fingerprint !== input.fingerprint) fail("IDEMPOTENCY_KEY_REUSED", "同一命令 ID 不能用于另一份内容", { commandId: input.commandId });
               result = { ...saved.commit, replayed: true }; return;
             }
+            if (input.expectedRevision !== undefined && state.revision !== input.expectedRevision)
+              fail("VERSION_CONFLICT", "导入预览已过期，请重新核对目标库", { expected: input.expectedRevision, actual: state.revision });
             prepare(tx, state, input, commit => { result = commit; }, abort);
           } catch (error) { abort(error); }
         };
@@ -103,7 +105,8 @@ function publishPlan(tx: IDBTransaction, state: WorkspaceState, input: CommandEx
   const shared = input.params.operations.some(op => op.type !== "viewState.updateFields");
   const revision = state.revision + (shared ? 1 : 0);
   const commit = parse(CommitSchema, { commandId: input.commandId, actorId: state.actorId, revision,
-    eventId: newId(), occurredAt: new Date().toISOString(), replayed: false, changes }, "INTERNAL_ERROR");
+    eventId: newId(), occurredAt: new Date().toISOString(), replayed: false, changes,
+    ...(input.importSource ? { importSource: input.importSource } : {}) }, "INTERNAL_ERROR");
   tx.objectStore(S.state).put({ ...state, revision });
   tx.objectStore(S.commands).add({ actorId: state.actorId, commandId: input.commandId, fingerprint: input.fingerprint, commit } satisfies SavedCommand);
   // 导航只持久化个人状态与命令结果，不递增业务版本，也不广播私人焦点。

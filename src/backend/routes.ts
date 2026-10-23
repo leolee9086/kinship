@@ -8,6 +8,8 @@ import { readEnvelope, requestIdentity, success, failure } from "./rpcBoundary";
 import { readJSON, readUpload } from "./requestBody";
 import type { GraphRepository } from "./repository";
 import { queryGraphPackage } from "./packageQuery";
+import { previewImportFile } from "./importFile";
+import { MAX_IMPORT_FILE_BYTES } from "../contracts/importPreview";
 
 interface Reply { result: unknown; workspaceId: string; revision: number; binary?: Blob }
 const rank: Record<Role, number> = { guest: 0, collaborator: 1, administrator: 2 };
@@ -18,7 +20,8 @@ export function buildDataRouter(repository: GraphRepository) {
     app.post(contract.path, async (ctx: RouterContext) => {
       let source: unknown;
       try {
-        const uploaded = name === "upload" ? await readUpload(ctx.request) : undefined;
+        const uploaded = name === "upload" ? await readUpload(ctx.request)
+          : name === "previewImportFile" ? await readUpload(ctx.request, MAX_IMPORT_FILE_BYTES, 65536) : undefined;
         source = uploaded ? uploaded.source : await readJSON(ctx.request);
         // 注册表的 schema 与工作函数由同一个名字关联，动态分发处集中做这一次类型桥接。
         const input = readEnvelope(contract.request, source) as Request<M>;
@@ -39,6 +42,10 @@ export function buildDataRouter(repository: GraphRepository) {
   bind("bootstrap", async () => { const result = await repository.bootstrap();
     return { result, workspaceId: result.workspaceId, revision: result.revision }; });
   bind("exportGraph", input => queryGraphPackage(repository, input));
+  bind("previewImportFile", (input, file) => previewImportFile(repository, input, file));
+  bind("previewImport", async input => { const reply = await repository.previewImport(input); return { result: reply.value, ...reply.context }; });
+  bind("importGraph", async input => { const result = await repository.importGraph(input);
+    return { result, workspaceId: input.workspaceId, revision: result.revision }; });
   bind("apply", async input => { const result = await repository.apply(input);
     return { result, workspaceId: input.workspaceId, revision: result.revision }; });
   bind("commandStatus", async input => { const reply = await repository.commandStatus(input); return { result: reply.value, ...reply.context }; });

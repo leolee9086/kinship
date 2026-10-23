@@ -1,5 +1,5 @@
 /** 只比较可序列化字段；缺席的可选字段由显式 unset 命令表达。 */
-import { canonicalJSON } from "../format/json";
+import { canonicalJSON } from "./json";
 export function sameField(left: unknown, right: unknown): boolean {
   return left === undefined || right === undefined ? left === right : canonicalJSON(left) === canonicalJSON(right);
 }

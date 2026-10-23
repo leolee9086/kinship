@@ -6,6 +6,7 @@ import { MediaInfoSchema } from "./media";
 import { strictObject, UUIDSchema, VersionSchema } from "./primitives";
 import { conceptOperations } from "./conceptOperations";
 import { settingsOperations } from "./settingsOperations";
+import { ImportProvenanceSchema } from "./importPreview";
 
 export const OperationSchema = Type.Union([
   ...conceptOperations, ...settingsOperations,
@@ -28,6 +29,7 @@ export const DeltaSchema = strictObject({
 export const CommitSchema = strictObject({
   commandId: UUIDSchema, actorId: UUIDSchema, revision: VersionSchema, eventId: UUIDSchema,
   occurredAt: Type.String({ format: "date-time" }), replayed: Type.Boolean(), changes: DeltaSchema,
+  importSource: Type.Optional(ImportProvenanceSchema),
 });
 export type Commit = Static<typeof CommitSchema>;
 export type Delta = Static<typeof DeltaSchema>;

@@ -2,7 +2,7 @@
 import type { Operation } from "../contracts/commands";
 import type { ConceptSnapshot, GraphSettings } from "../domain/concepts";
 import { splitSettings } from "../domain/presentationState";
-import { changedFields } from "./fieldDiff";
+import { changedFields } from "../format/fieldDiff";
 
 export function settingsCommands(current: ConceptSnapshot, settings: GraphSettings): Operation[] {
   const previous = splitSettings(current.settings), next = splitSettings(settings), result: Operation[] = [];

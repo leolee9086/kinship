@@ -16,6 +16,7 @@ import { Background } from "./Background";
 import { ConceptEditor, type EditorMode } from "./ConceptEditor";
 import { ViewSettings } from "./ViewSettings";
 import { GraphPackageExport } from "./GraphPackageExport";
+import { GraphPackageImport } from "./GraphPackageImport";
 import { ConceptLibraryList } from "./ConceptLibraryList";
 import { useConceptGraph } from "./useConceptGraph";
 import { useWorkspacePanels } from "./useWorkspacePanels";
@@ -41,6 +42,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
   const [tab, setTab] = useState<"instances" | "types" | "roles">("instances");
   const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
   const [help, setHelp] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 0.82 });
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
   const curveStyle: CurveStyle = settings.curve;
@@ -92,6 +94,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
       if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.closest("input,textarea,select,button,summary,[contenteditable=true],[role=dialog]")) return;
+      if (importing) return;
       if (event.key === "Escape") { setEditor(null); setHelp(false); setPanel(null); setLibrary(false); return; }
       if (editor || help) return;
       if (event.key === "/") { event.preventDefault(); setLibrary(true); requestAnimationFrame(() => search.current?.focus()); return; }
@@ -130,6 +133,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
       <div className="header-actions"><span className="save-status" role="status">{graph.pending ? "正在保存…" : graph.error ? "存在未保存变更" : "已保存到概念仓库"}</span>
         <button className={library ? "active" : ""} onClick={() => setLibrary(v => !v)}>概念库</button>
         <button className={panel === "settings" ? "active" : ""} onClick={() => setPanel(p => p === "settings" ? null : "settings")}>视图与背景</button>
+        <button disabled={graph.pending > 0} onClick={() => setImporting(true)}>导入</button>
         <button aria-label="键盘帮助" onClick={() => setHelp(true)}>?</button></div>
     </header>
     {graph.error && <div className="error-banner" role="alert"><span>{graph.error}</span><button onClick={graph.clearError} aria-label="关闭错误提示">×</button></div>}
@@ -190,6 +194,7 @@ function Workspace({ adapter, graph, snapshot }: { adapter: DataAdapter; graph: 
           </div> : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
       </aside>}
     </div>
+    {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
     {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}
     {help && <div className="modal-scrim" onClick={() => setHelp(false)}><section className="help-dialog" role="dialog" aria-modal="true" aria-label="键盘帮助" onClick={e => e.stopPropagation()}><button className="close" onClick={() => setHelp(false)}>关闭</button><span className="eyebrow">FIND YOUR FLOW</span><h2>用键盘探索概念</h2><p>方向键沿屏幕方位切换焦点；Backspace 返回上一焦点。</p><dl><dt>/</dt><dd>搜索概念</dd><dt>Enter</dt><dd>编辑焦点</dd><dt>N</dt><dd>新建概念</dd><dt>R</dt><dd>新建关系</dd><dt>?</dt><dd>显示帮助</dd><dt>Esc</dt><dd>关闭面板</dd></dl><p>拖动平移，滚轮或双指缩放。点击关系线检查关系概念。</p></section></div>}
   </main>;

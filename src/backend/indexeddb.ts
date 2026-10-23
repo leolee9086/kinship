@@ -10,8 +10,10 @@ import type { GraphRepository } from "./repository";
 import { executeCommand } from "./commandTransaction";
 import { openWorkspace } from "./workspaceDb";
 import * as queries from "./workspaceQueries";
+import { queryImportPreview } from "./importQuery";
+import { executeImport } from "./importTransaction";
 
-async function fingerprint(method: Method, input: Request<"apply"> | Request<"upload">): Promise<string> {
+async function fingerprint(method: Method, input: Request<"apply"> | Request<"upload"> | Request<"importGraph">): Promise<string> {
   return sha256(canonicalJSON({ version: input.version, operation: registry[method].path, workspaceId: input.workspaceId, params: input.params }));
 }
 export class IndexedDbRepository implements GraphRepository {
@@ -21,6 +23,13 @@ export class IndexedDbRepository implements GraphRepository {
     this.opening = openWorkspace(name, factory);
   }
   async bootstrap() { return queries.bootstrap(await this.opening, this.role); }
+  async previewImport(source: Request<"previewImport">) {
+    return queryImportPreview(await this.opening, parse(registry.previewImport.request, source));
+  }
+  async importGraph(source: Request<"importGraph">): Promise<Commit> {
+    const input = parse(registry.importGraph.request, source);
+    return executeImport(await this.opening, input, this.role, await fingerprint("importGraph", input));
+  }
   async apply(source: Request<"apply">): Promise<Commit> {
     const input = parse(registry.apply.request, source);
     return executeCommand(await this.opening, { ...input, role: this.role, fingerprint: await fingerprint("apply", input) });

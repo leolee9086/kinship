@@ -27,10 +27,10 @@ export async function readJSON(request: Request): Promise<unknown> {
   try { return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(source)); }
   catch { throw new SyntaxError("invalid JSON or UTF-8"); }
 }
-export async function readUpload(request: Request): Promise<{ source: unknown; file: File }> {
+export async function readUpload(request: Request, fileLimit = MAX_MEDIA_BYTES, envelopeLimit = MAX_JSON_BYTES): Promise<{ source: unknown; file: File }> {
   const contentType = request.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().startsWith("multipart/form-data;")) throw new SyntaxError("invalid multipart");
-  const body = await bytes(request, MAX_MEDIA_BYTES + MAX_JSON_BYTES + 65536);
+  const body = await bytes(request, fileLimit + envelopeLimit + 65536);
   let form: FormData;
   try { form = await new Response(body, { headers: { "content-type": contentType } }).formData(); }
   catch { throw new SyntaxError("invalid multipart"); }
@@ -38,6 +38,6 @@ export async function readUpload(request: Request): Promise<{ source: unknown; f
     throw new SyntaxError("invalid multipart fields");
   const envelope = form.get("request"), file = form.get("file");
   if (typeof envelope !== "string" || !(file instanceof File)) throw new SyntaxError("missing envelope or file");
-  if (new TextEncoder().encode(envelope).byteLength > MAX_JSON_BYTES) throw tooLarge();
+  if (new TextEncoder().encode(envelope).byteLength > envelopeLimit || file.size > fileLimit) throw tooLarge();
   return { source: JSON.parse(envelope), file };
 }

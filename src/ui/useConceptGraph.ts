@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { DataAdapter, MutationOptions } from "../adapter/api";
 import type { ConceptMutation, ConceptSnapshot, GraphSettings } from "../domain/concepts";
+import type { Request } from "../contracts/rpc";
+import type { CallOptions } from "../adapter/rpcClient";
 
 export function useConceptGraph(adapter: DataAdapter) {
   const [snapshot, setSnapshot] = useState<ConceptSnapshot | null>(null);
@@ -47,5 +49,17 @@ export function useConceptGraph(adapter: DataAdapter) {
     } catch (err) { setError(String(err)); throw err; }
     finally { setPending(n => n - 1); }
   }, [adapter]);
-  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate };
+  const importGraph = useCallback(async (params: Request<"importGraph">["params"], options: CallOptions) => {
+    setPending(n => n + 1);
+    try {
+      await saving.current;
+      const commit = await adapter.importGraph(params, options);
+      try {
+        const data = await adapter.load();
+        settings.current = data.settings; persisted.current = data.settings; setSnapshot(data);
+      } catch { setError("导入已提交，页面暂时未能刷新；重新打开工作区可读取已保存内容。"); }
+      return commit;
+    } finally { setPending(n => n - 1); }
+  }, [adapter]);
+  return { snapshot, pending, error, reportError, clearError: () => setError(null), changeSettings, mutate, importGraph };
 }

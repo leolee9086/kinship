@@ -35,7 +35,11 @@ UI 不直接访问数据库。当前 `/rpc/v1/` 契约包含工作区快照、�
 
 概念详情可**预览并下载局部 JSON 图谱包**：选当前概念/关系作为入口，带必要定义，选择补齐参与对象或保留外部 UUID 引用。完整关系的全部参与槽原样保留，嵌套关系按出向引用补齐，不扩展参与者的其他关系。`entrypoints`、`selected`、`dependencies`、`externals`、来源修订和覆盖声明均明确，逐记录 SHA-256 摘要在客户端再次校验。默认上限 1000 条概念、1 MiB，超预算明确报错；仅导出概念与关系，正文、媒体、展示和历史明确未包含。入口是 `DataAdapter.exportGraph → POST /rpc/v1/graph/export`，不会在 UI 中直接读取数据库。契约见[图谱包模式](./src/contracts/graphPackage.ts)，闭包规则见[局部选择](./src/domain/packageSelection.ts)。
 
-当前 bootstrap 与导出取数仍读取完整概念快照，业务图编辑仍执行全图约束检查；分页目录、后端局部投影、生命周期与历史回滚界面、图谱包导入、SQLite 容器、正文编辑器、Kramdown 编解码、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件作为显式导入导出目标，普通导入将保留 UUID；当前导出不代表完整往返已实现。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
+顶部**导入**可上传最多 1 MiB 的 JSON 图谱包。文件通过 `DataAdapter → multipart POST /rpc/v1/graph/import/file` 交给后端检查字节摘要、UTF-8 和文件契约；UI 不自行解析文件。预览按 UUID 区分新增、相同、内容冲突和身份不可用，冲突可展开比较字段，再逐项保留目标或采用包内完整内容。缺失的外部 UUID、身份墓碑和槽位碰撞阻止提交；外部对象内容变化须明确接受目标版本，不按名称猜匹配。可通过 `POST /rpc/v1/graph/import/preview` 重新核对。
+
+确认导入经 `POST /rpc/v1/graph/import/apply`，在同一严格事务保存事实、资源版本、编辑者、前值、来源包身份/摘要/修订和幂等结果。预览后的共享写会使整个导入明确过期；最多 128 个原子操作，超额报错，不分批截断。完整相同的导入不递增共享修订。来源版本不充当目标版本；重开数据库或并发重放同一命令不会重复创建记录。提交结果不明时表单保留原命令与内容供重试；未包含的对象、正文、媒体、展示和历史不会删除。入口见[导入契约](./src/contracts/importPreview.ts)、[差异规划](./src/domain/importCommands.ts)、[导入事务](./src/backend/importTransaction.ts)。
+
+当前 bootstrap、导出和导入预览仍读取完整概念快照，业务图编辑仍执行全图约束检查；分页目录、后端局部投影、生命周期与历史回滚界面、SQLite 容器、正文编辑器、Kramdown 编解码、WebSocket 和 Supabase 尚未交付。JSON/Kramdown/SQLite 文件作为显式交换目标；目前仅完成概念与关系的 JSON 局部往返，不代表正文、媒体、展示或历史的备份恢复。后续 Rust 或远端后端复用协议契约并替换 transport/存储实现。
 
 项目设计和开发记录在思源维护：[编辑器、语义内链与原子 RPC 方案](siyuan://blocks/20261023012229-e9zn1zp)、[RPC 契约与事务协议](siyuan://blocks/20261023032258-aa34xhy)、[JSON/Kramdown 与局部图谱包设计](siyuan://blocks/20261023025308-dv16evk)、[开发进度和验收记录](siyuan://blocks/20261023011959-53mrjex)。
 

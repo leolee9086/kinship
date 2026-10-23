@@ -5,6 +5,7 @@ import { FailureSchema } from "./errors";
 import { MediaIdentitySchema, MediaInfoSchema, UploadSchema } from "./media";
 import { strictObject, UUIDSchema, VersionSchema } from "./primitives";
 import { ExportGraphParamsSchema, GraphPackageSchema } from "./graphPackage";
+import { ImportFileParamsSchema, ImportFileResultSchema, ImportGraphParamsSchema, ImportPreviewParamsSchema, ImportPreviewSchema } from "./importPreview";
 
 const base = { protocol: Type.Literal("kinship.rpc"), version: Type.Literal(1), requestId: UUIDSchema };
 const scoped = { ...base, workspaceId: UUIDSchema };
@@ -22,6 +23,12 @@ export const registry = {
     request: strictObject({ ...base, params: strictObject({}) }), result: BootstrapSchema },
   exportGraph: { path: "/rpc/v1/graph/export", kind: "query", role: "guest",
     request: strictObject({ ...scoped, params: ExportGraphParamsSchema }), result: GraphPackageSchema },
+  previewImportFile: { path: "/rpc/v1/graph/import/file", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: ImportFileParamsSchema }), result: ImportFileResultSchema },
+  previewImport: { path: "/rpc/v1/graph/import/preview", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: ImportPreviewParamsSchema }), result: ImportPreviewSchema },
+  importGraph: { path: "/rpc/v1/graph/import/apply", kind: "command", role: "collaborator",
+    request: strictObject({ ...write, params: ImportGraphParamsSchema }), result: CommitSchema },
   apply: { path: "/rpc/v1/commands/apply", kind: "command", role: "guest",
     request: strictObject({ ...write, params: ApplySchema }), result: CommitSchema },
   commandStatus: { path: "/rpc/v1/commands/status", kind: "query", role: "guest",

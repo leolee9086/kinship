@@ -7,6 +7,8 @@ import { newId } from "../domain/concepts";
 import { sha256 } from "../format/digest";
 import type { Dispatch, TransportResponse } from "./transport";
 import { verifyPackageResponse } from "./packageResponse";
+import { verifyImportFile, verifyImportPreview } from "./importResponse";
+import { verifyCommit } from "./commitResponse";
 
 export interface CallOptions { commandId?: string; file?: File; signal?: AbortSignal }
 export type CallResult<M extends Method> = M extends "mediaContent" ? Blob : Result<M>;
@@ -22,7 +24,7 @@ export class RpcClient {
       ...(name === "bootstrap" ? {} : { workspaceId: this.workspaceId }), ...(commandId ? { commandId } : {}) };
     parse(contract.request, input);
     let body: unknown = input;
-    if (name === "upload") {
+    if (name === "upload" || name === "previewImportFile") {
       if (!options.file) fail("INVALID_REQUEST", "上传请求缺少文件");
       const form = new FormData(); form.set("request", JSON.stringify(input)); form.set("file", options.file, options.file.name); body = form;
     }
@@ -39,6 +41,8 @@ export class RpcClient {
       if (envelope.requestId !== input.requestId && (envelope.ok || envelope.requestId !== null)) throw new Error("request ID mismatch");
       if (envelope.ok && (response.status !== 200 || (name !== "bootstrap" && envelope.context.workspaceId !== this.workspaceId))) throw new Error("invalid response context");
       if (!envelope.ok && response.status !== ERROR_STATUS[envelope.error.code]) throw new Error("invalid error status");
+      if (envelope.ok && commandId) verifyCommit(envelope.result, envelope.context.revision, commandId,
+        name === "importGraph" ? parse(registry.importGraph.request, input).params : undefined);
     } catch { fail(commandId ? "RESULT_UNKNOWN" : "INTERNAL_ERROR", "服务响应未通过协议校验", { requestId: input.requestId, ...(commandId ? { commandId } : {}) }, Boolean(commandId)); }
     if (!envelope.ok) throw new RpcError(envelope.error);
     if (name === "bootstrap") {
@@ -47,6 +51,11 @@ export class RpcClient {
       this.workspaceId = result.workspaceId;
     }
     if (name === "exportGraph") await verifyPackageResponse(parse(registry.exportGraph.result, envelope.result, "INTERNAL_ERROR"), envelope.context);
+    if (name === "previewImportFile") await verifyImportFile(parse(registry.previewImportFile.result, envelope.result, "INTERNAL_ERROR"), envelope.context);
+    if (name === "previewImport") {
+      await verifyImportPreview(parse(registry.previewImport.request, input).params.package,
+        parse(registry.previewImport.result, envelope.result, "INTERNAL_ERROR"), envelope.context);
+    }
     return envelope.result as CallResult<M>;
   }
   private async binary(requestId: string, params: unknown, response: TransportResponse): Promise<Blob> {

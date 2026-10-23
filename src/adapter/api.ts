@@ -1,13 +1,14 @@
 /** 前端数据门面：编辑草稿编译成带资源版本的字段命令，界面不接触存储。 */
 import type { Apply, Commit, Operation, ViewStateRecord } from "../contracts/commands";
-import type { Request } from "../contracts/rpc";
+import type { Request, Result } from "../contracts/rpc";
 import type { GraphPackage } from "../contracts/graphPackage";
+import type { ImportPreview } from "../contracts/importPreview";
 import { fail } from "../contracts/errors";
 import { newId, type Concept, type ConceptMutation, type ConceptSnapshot, type GraphSettings, type MediaInfo } from "../domain/concepts";
 import { sha256 } from "../format/digest";
 import { RpcClient, type CallOptions } from "./rpcClient";
 import { WorkspaceReplica } from "./replica";
-import { conceptCommands } from "./conceptCommands";
+import { conceptCommands } from "../domain/conceptCommands";
 import { settingsCommands } from "./settingsCommands";
 import type { Dispatch } from "./transport";
 
@@ -18,6 +19,9 @@ export interface MutationOptions extends CallOptions {
 export interface DataAdapter {
   load(): Promise<ConceptSnapshot>;
   exportGraph(params: Request<"exportGraph">["params"]): Promise<GraphPackage>;
+  previewImport(value: GraphPackage): Promise<ImportPreview>;
+  previewImportFile(file: File): Promise<Result<"previewImportFile">>;
+  importGraph(params: Request<"importGraph">["params"], options?: CallOptions): Promise<Commit>;
   execute(command: Apply, options?: CallOptions): Promise<Commit>;
   mutate(change: ConceptMutation, options?: MutationOptions): Promise<ConceptSnapshot>;
   saveSettings(settings: GraphSettings): Promise<GraphSettings>;
@@ -42,6 +46,11 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
   return {
     load, execute,
     exportGraph: async params => { await ready(); return client.call("exportGraph", params); },
+    previewImport: async value => { await ready(); return client.call("previewImport", { package: value }); },
+    previewImportFile: async file => { await ready(); return client.call("previewImportFile", {
+      name: file.name, size: file.size, sha256: await sha256(file) }, { file }); },
+    importGraph: async (params, options) => { await ready(); const commit = await client.call("importGraph", params, options);
+      replica!.apply(commit); return commit; },
     mutate: async (change, options) => {
       const current = (await ready()).snapshot, operations: Operation[] = [], records = new Map(current.concepts.map(c => [c.id, c]));
       for (const concept of change.put ?? []) {

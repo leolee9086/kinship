@@ -1,7 +1,7 @@
 /** 编辑器的草稿与打开时的概念比较，只提交实际改动的字段及 UUID 参与槽。 */
 import type { Operation } from "../contracts/commands";
-import type { Concept, Participation } from "../domain/concepts";
-import { changedFields, sameField } from "./fieldDiff";
+import type { Concept, Participation } from "./concepts";
+import { changedFields, sameField } from "../format/fieldDiff";
 
 export function conceptCommands(concept: Concept, initial: Concept | undefined, expectedVersion: number | null): Operation[] {
   if (!initial) return [{ type: "concept.create", concept }];
