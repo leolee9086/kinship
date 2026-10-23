@@ -19,5 +19,8 @@ await mkdir(resolve(root, "vendor"), { recursive: true });
 const archive = resolve(root, `vendor/calibur-router-${metadata.version}.tgz`);
 const result = spawnSync("tar", ["-czf", archive, "-C", staging, "package"], { stdio: "inherit" });
 if (result.error) throw result.error; if (result.status !== 0) throw new Error(`tar退出码：${result.status}`);
-const digest = createHash("sha256").update(await readFile(archive)).digest("hex");
-console.log(JSON.stringify({ source, archive, sha256: digest }));
+const bytes = await readFile(archive);
+const digest = createHash("sha256").update(bytes).digest("hex");
+const integrity = `sha512-${createHash("sha512").update(bytes).digest("base64")}`;
+// 同名tar重打包时，本地pnpm缓存可能沿用旧摘要；把锁文件所需的完整性值也明确输出。
+console.log(JSON.stringify({ source, archive, sha256: digest, integrity }));

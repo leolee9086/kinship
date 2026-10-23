@@ -586,7 +586,7 @@ packages:
     engines: {node: '>=8'}
 
   calibur-router@file:vendor/calibur-router-0.1.0.tgz:
-    resolution: {integrity: sha512-sD4rDRP40U45U9Ulye+0AzZkDs0iQ9mv5WPJqvQ+TLW2YdqbD0CVoP/xOCZCPR2AOzwbCq6RKRzmEo6ZByUHdw==, tarball: file:vendor/calibur-router-0.1.0.tgz}
+    resolution: {integrity: sha512-a7Y3672mykhriGlvcpodNe5XDE8nZQVR35FYJWiJJ8KY9CJXfzgUA5ur10MyYdEeO+rCYluCmtBN6bpk5g6YTw==, tarball: file:vendor/calibur-router-0.1.0.tgz}
     version: 0.1.0
     peerDependencies:
       arktype: '>=2.1.29 <2.3.0'
