@@ -1,0 +1,30 @@
+/* 历史列表和字段对比共用独立滚动容器；长UUID与长文本在窄屏内换行。 */
+.editor-dialog.history-dialog { width: min(920px, 100%); }
+.history-dialog .panel-header { flex-shrink: 0; padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; }
+.history-dialog button, .history-dialog select { min-height: 44px; }
+.history-dialog .panel-header button { min-width: 44px; }
+.history-body { overflow-y: auto; padding: 0 24px 24px; font-size: 13px; line-height: 1.65; }
+.history-body code, .history-body time { overflow-wrap: anywhere; font-size: 11px; }
+.history-body label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.history-body select { width: 100%; min-width: 0; }
+.history-toolbar { display: flex; align-items: end; gap: 12px; }
+.history-toolbar label { width: 110px; }
+.history-events { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+.history-events button { width: 100%; text-align: left; padding: 12px; display: flex; flex-direction: column; gap: 4px; }
+.history-events button[aria-pressed=true] { background: #edf4ec; border-color: #709481; }
+.history-events small { color: #607761; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.history-pagination { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0 16px; border-bottom: 1px solid var(--line); }
+.history-content { display: grid; grid-template-columns: minmax(240px, 0.85fr) minmax(0, 1.15fr); gap: 20px; align-items: start; }
+.history-feed, .history-event { min-width: 0; }
+.history-placeholder { padding: 24px; color: #607761; }
+.history-event h3 { margin: 18px 0 8px; overflow-wrap: anywhere; }
+.history-event dl { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 4px 10px; }
+.history-event dt { color: #607761; }
+.history-event dd { margin: 0; min-width: 0; }
+.history-field { padding: 8px 0; border-top: 1px solid var(--line); }
+.history-field h4 { margin: 0 0 6px; }
+.history-field > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.history-field span { color: #607761; font-size: 12px; }
+.history-body pre { max-height: 300px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: #f2f5ee; border-radius: 6px; padding: 10px; font-size: 12px; }
+.history-dialog :focus-visible { outline: 2px solid #407768; outline-offset: 2px; }
+@media (max-width: 760px) { .history-content { grid-template-columns: minmax(0, 1fr); } .history-body { padding: 0 17px 17px; } .history-dialog .panel-header { padding: 16px 17px; } .history-field > div { grid-template-columns: minmax(0, 1fr); } }

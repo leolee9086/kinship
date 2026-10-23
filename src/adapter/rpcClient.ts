@@ -10,6 +10,7 @@ import { verifyPackageResponse } from "./packageResponse";
 import { verifyImportFile, verifyImportPreview } from "./importResponse";
 import { verifyCommit } from "./commitResponse";
 import { verifyDeletePreview, verifyDeletion } from "./deletionResponse";
+import { verifyHistoryConcept, verifyHistoryPage } from "./historyResponse";
 
 export interface CallOptions { commandId?: string; file?: File; signal?: AbortSignal }
 export type CallResult<M extends Method> = M extends "mediaContent" ? Blob : Result<M>;
@@ -48,6 +49,10 @@ export class RpcClient {
         parse(registry.previewDelete.request, input).params.id, envelope.context);
       if (envelope.ok && name === "deleteConcept") verifyDeletion(parse(registry.deleteConcept.result, envelope.result, "INTERNAL_ERROR"),
         parse(registry.deleteConcept.request, input).params);
+      if (envelope.ok && name === "historyList") verifyHistoryPage(parse(registry.historyList.result, envelope.result, "INTERNAL_ERROR"),
+        parse(registry.historyList.request, input).params, envelope.context);
+      if (envelope.ok && name === "historyConcept") verifyHistoryConcept(parse(registry.historyConcept.result, envelope.result, "INTERNAL_ERROR"),
+        parse(registry.historyConcept.request, input).params, envelope.context);
     } catch { fail(commandId ? "RESULT_UNKNOWN" : "INTERNAL_ERROR", "服务响应未通过协议校验", { requestId: input.requestId, ...(commandId ? { commandId } : {}) }, Boolean(commandId)); }
     if (!envelope.ok) throw new RpcError(envelope.error);
     if (name === "bootstrap") {

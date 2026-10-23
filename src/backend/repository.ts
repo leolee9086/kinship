@@ -14,6 +14,8 @@ export interface GraphRepository {
   upload(input: Request<"upload">, file: Blob): Promise<Commit>;
   commandStatus(input: Request<"commandStatus">): Promise<QueryValue<Result<"commandStatus">>>;
   events(input: Request<"events">): Promise<QueryValue<Result<"events">>>;
+  historyList(input: Request<"historyList">): Promise<QueryValue<Result<"historyList">>>;
+  historyConcept(input: Request<"historyConcept">): Promise<QueryValue<Result<"historyConcept">>>;
   media(workspaceId: string, id: string): Promise<QueryValue<StoredMedia>>;
   close(): Promise<void>;
 }

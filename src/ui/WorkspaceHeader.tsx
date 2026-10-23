@@ -1,8 +1,8 @@
 /** 全局导航与当前图谱操作分层；次要命令收进更多菜单，项目入口保持可见。 */
 import { useEffect, useRef, type ReactNode } from "react";
-export function WorkspaceHeader({ projectControls, library, settingsOpen, pending, error, onLibrary, onSettings, onImport, onHelp }: {
+export function WorkspaceHeader({ projectControls, library, settingsOpen, pending, error, onLibrary, onSettings, onImport, onHistory, onHelp }: {
   projectControls?: ReactNode; library: boolean; settingsOpen: boolean; pending: number; error: string | null;
-  onLibrary: () => void; onSettings: () => void; onImport: () => void; onHelp: () => void;
+  onLibrary: () => void; onSettings: () => void; onImport: () => void; onHistory: () => void; onHelp: () => void;
 }) {
   const menu = useRef<HTMLDetailsElement>(null);
   useEffect(() => { const close = (event: PointerEvent) => { if (menu.current && !menu.current.contains(event.target as Node)) menu.current.open = false; };
@@ -17,6 +17,7 @@ export function WorkspaceHeader({ projectControls, library, settingsOpen, pendin
       <details className="app-more" ref={menu} onKeyDown={event => { if (event.key === "Escape" && menu.current) { menu.current.open = false; menu.current.querySelector("summary")?.focus(); } }}>
         <summary aria-label="更多操作">•••</summary><div className="app-more-items" role="group" aria-label="更多工作区操作">
           <button disabled={pending > 0} onClick={() => run(onImport)}>导入图谱包</button>
+          <button onClick={() => run(onHistory)}>编辑历史</button>
           <button onClick={() => run(onHelp)}>键盘帮助</button>
         </div>
       </details>

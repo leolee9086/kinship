@@ -8,6 +8,7 @@ import { ExportGraphParamsSchema, GraphPackageSchema } from "./graphPackage";
 import { ImportFileParamsSchema, ImportFileResultSchema, ImportGraphParamsSchema, ImportPreviewParamsSchema, ImportPreviewSchema } from "./importPreview";
 
 import { DeleteParamsSchema, DeletePreviewSchema } from "./deletion";
+import { HistoryConceptParamsSchema, HistoryConceptSchema, HistoryListParamsSchema, HistoryPageSchema } from "./history";
 
 const base = { protocol: Type.Literal("kinship.rpc"), version: Type.Literal(1), requestId: UUIDSchema };
 const scoped = { ...base, workspaceId: UUIDSchema };
@@ -44,6 +45,10 @@ export const registry = {
   events: { path: "/rpc/v1/events/list", kind: "query", role: "guest",
     request: strictObject({ ...scoped, params: strictObject({ after: VersionSchema, limit: Type.Integer({ minimum: 1, maximum: 100 }) }) }),
     result: EventPageSchema },
+  historyList: { path: "/rpc/v1/history/list", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: HistoryListParamsSchema }), result: HistoryPageSchema },
+  historyConcept: { path: "/rpc/v1/history/concept", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: HistoryConceptParamsSchema }), result: HistoryConceptSchema },
   upload: { path: "/rpc/v1/media/upload", kind: "command", role: "collaborator",
     request: strictObject({ ...write, params: UploadSchema }), result: CommitSchema },
   mediaInfo: { path: "/rpc/v1/media/info", kind: "query", role: "guest",

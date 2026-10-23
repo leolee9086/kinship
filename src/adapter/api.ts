@@ -3,6 +3,7 @@ import type { Apply, Commit, Operation, ViewStateRecord } from "../contracts/com
 import type { Request, Result } from "../contracts/rpc";
 import type { GraphPackage } from "../contracts/graphPackage";
 import type { ImportPreview } from "../contracts/importPreview";
+import type { HistoryConcept, HistoryPage } from "../contracts/history";
 import { fail } from "../contracts/errors";
 import { newId, type Concept, type ConceptMutation, type ConceptSnapshot, type GraphSettings, type MediaInfo } from "../domain/concepts";
 import { sha256 } from "../format/digest";
@@ -25,6 +26,8 @@ export interface DataAdapter {
   previewDelete(id: string): Promise<Result<"previewDelete">>;
   deleteConcept(params: Request<"deleteConcept">["params"], options?: CallOptions): Promise<Commit>;
   setForgotten(id: string, forgotten: boolean, expectedVersion: number, options?: CallOptions): Promise<Commit>;
+  historyList(params: Request<"historyList">["params"], options?: CallOptions): Promise<HistoryPage>;
+  historyConcept(eventId: string, conceptId: string, options?: CallOptions): Promise<HistoryConcept>;
   execute(command: Apply, options?: CallOptions): Promise<Commit>;
   mutate(change: ConceptMutation, options?: MutationOptions): Promise<ConceptSnapshot>;
   saveSettings(settings: GraphSettings): Promise<GraphSettings>;
@@ -48,6 +51,8 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
   };
   return {
     load, execute,
+    historyList: async (params, options) => { await ready(); return client.call("historyList", params, options); },
+    historyConcept: async (eventId, conceptId, options) => { await ready(); return client.call("historyConcept", { eventId, conceptId }, options); },
     setForgotten: async (id, forgotten, expectedVersion, options) => {
       await ready();
       if (!Number.isSafeInteger(expectedVersion) || expectedVersion < 1) fail("INVALID_REQUEST", "生命周期操作必须使用审阅时的版本", { id });

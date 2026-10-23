@@ -15,6 +15,7 @@ import { executeImport } from "./importTransaction";
 
 import { queryDeletion } from "./deletionQuery";
 import { executeDeletion } from "./deletionTransaction";
+import { queryHistoryConcept, queryHistoryList } from "./historyQuery";
 
 async function fingerprint(method: Method, input: Request<"apply"> | Request<"upload"> | Request<"importGraph"> | Request<"deleteConcept">): Promise<string> {
   return sha256(canonicalJSON({ version: input.version, operation: registry[method].path, workspaceId: input.workspaceId, params: input.params }));
@@ -63,6 +64,12 @@ export class IndexedDbRepository implements GraphRepository {
   async events(source: Request<"events">) {
     const input = parse(registry.events.request, source);
     return queries.events(await this.opening, input.workspaceId, input.params.after, input.params.limit);
+  }
+  async historyList(source: Request<"historyList">) {
+    return queryHistoryList(await this.opening, parse(registry.historyList.request, source));
+  }
+  async historyConcept(source: Request<"historyConcept">) {
+    return queryHistoryConcept(await this.opening, parse(registry.historyConcept.request, source));
   }
   async media(workspaceId: string, id: string): Promise<queries.QueryValue<StoredMedia>> {
     const result = await queries.media(await this.opening, workspaceId, id);

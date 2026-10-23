@@ -24,7 +24,7 @@ export function bootstrap(db: IDBDatabase, role: Role): Promise<Bootstrap> {
 
 export interface QueryValue<T> { value: T; context: { workspaceId: string; revision: number } }
 export function scopedQuery<T>(db: IDBDatabase, workspaceId: string, stores: string[],
-  read: (tx: IDBTransaction, state: WorkspaceState, done: (value: T) => void) => void): Promise<QueryValue<T>> {
+  read: (tx: IDBTransaction, state: WorkspaceState, done: (value: T) => void, abort: (error: unknown) => void) => void): Promise<QueryValue<T>> {
   return new Promise((resolve, reject) => {
     const tx = db.transaction([...new Set([S.state, ...stores])], "readonly");
     const state = tx.objectStore(S.state).get("workspace");
@@ -34,7 +34,7 @@ export function scopedQuery<T>(db: IDBDatabase, workspaceId: string, stores: str
         const meta = state.result as WorkspaceState;
         if (!meta || meta.workspaceId !== workspaceId) fail("NOT_FOUND", "工作区不存在");
         context = { workspaceId: meta.workspaceId, revision: meta.revision };
-        read(tx, meta, value => { result = value; });
+        read(tx, meta, value => { result = value; }, error => { cause = error; tx.abort(); });
       } catch (error) { cause = error; tx.abort(); }
     };
     tx.oncomplete = () => resolve({ value: result, context });

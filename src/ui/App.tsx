@@ -21,6 +21,7 @@ import { ConceptEditor, type EditorMode } from "./ConceptEditor";
 import { ViewSettings } from "./ViewSettings";
 import { GraphPackageImport } from "./GraphPackageImport";
 import { ConceptDeletion } from "./ConceptDeletion";
+import { HistoryReview } from "./HistoryReview";
 import { ConceptLibraryList } from "./ConceptLibraryList";
 import { useConceptGraph } from "./useConceptGraph";
 import { useWorkspacePanels } from "./useWorkspacePanels";
@@ -54,6 +55,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
   const [help, setHelp] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const workspace = useRef<HTMLElement>(null);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 0.82 });
@@ -107,7 +109,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
       const target = event.target as HTMLElement;
       if (target.closest("input,textarea,select,button,summary,[contenteditable=true],[role=dialog]")) return;
-      if (importing || deleting || lifecycle.locked) return;
+      if (importing || deleting || reviewing || lifecycle.locked) return;
       if (event.key === "Escape") { setEditor(null); setHelp(false); setPanel(null); setLibrary(false); return; }
       if (editor || help) return;
       if (event.key === "/") { event.preventDefault(); setLibrary(true); requestAnimationFrame(() => search.current?.focus()); return; }
@@ -143,9 +145,9 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const relationCount = index.concepts.filter(c => !!c.participants).length;
 
   return <main ref={workspace} tabIndex={-1} className="workspace">
-    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing || Boolean(deleting) || lifecycle.locked)} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
+    <WorkspaceHeader projectControls={projectControls?.(graph.pending > 0 || Boolean(editor) || importing || reviewing || Boolean(deleting) || lifecycle.locked)} library={library} settingsOpen={panel === "settings"} pending={graph.pending} error={graph.error}
       onLibrary={() => setLibrary(value => !value)} onSettings={() => setPanel(value => value === "settings" ? null : "settings")}
-      onImport={() => setImporting(true)} onHelp={() => setHelp(true)} />
+      onImport={() => setImporting(true)} onHistory={() => setReviewing(true)} onHelp={() => setHelp(true)} />
     {graph.error && <div className="error-banner" role="alert"><span>{graph.error}</span><button onClick={graph.clearError} aria-label="关闭错误提示">×</button></div>}
     <div className="work-area">
       <aside className={`concept-library ${library ? "is-open" : ""}`}>
@@ -197,6 +199,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
       onDismiss={() => { lifecycle.dismiss(); requestAnimationFrame(() => workspace.current?.focus()); }} />
     {deleting && <ConceptDeletion key={deleting} adapter={adapter} id={deleting} onDelete={graph.deleteConcept} onClose={() => setDeleting(null)} onDeleted={closeDeleted} />}
     {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
+    {reviewing && <HistoryReview adapter={adapter} onClose={() => { setReviewing(false); requestAnimationFrame(() => workspace.current?.focus()); }} />}
     {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}
     {help && <div className="modal-scrim" onClick={() => setHelp(false)}><section className="help-dialog" role="dialog" aria-modal="true" aria-label="键盘帮助" onClick={e => e.stopPropagation()}><button className="close" onClick={() => setHelp(false)}>关闭</button><span className="eyebrow">FIND YOUR FLOW</span><h2>用键盘探索概念</h2><p>方向键沿屏幕方位切换焦点；Backspace 返回上一焦点。</p><dl><dt>/</dt><dd>搜索概念</dd><dt>Enter</dt><dd>编辑焦点</dd><dt>N</dt><dd>新建概念</dd><dt>R</dt><dd>新建关系</dd><dt>?</dt><dd>显示帮助</dd><dt>Esc</dt><dd>关闭面板</dd></dl><p>拖动平移，滚轮或双指缩放。点击关系线检查关系概念。</p></section></div>}
   </main>;

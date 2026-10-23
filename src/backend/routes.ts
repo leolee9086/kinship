@@ -53,6 +53,8 @@ export function buildDataRouter(repository: GraphRepository) {
     return { result, workspaceId: input.workspaceId, revision: result.revision }; });
   bind("commandStatus", async input => { const reply = await repository.commandStatus(input); return { result: reply.value, ...reply.context }; });
   bind("events", async input => { const reply = await repository.events(input); return { result: reply.value, ...reply.context }; });
+  bind("historyList", async input => { const reply = await repository.historyList(input); return { result: reply.value, ...reply.context }; });
+  bind("historyConcept", async input => { const reply = await repository.historyConcept(input); return { result: reply.value, ...reply.context }; });
   bind("upload", async (input, file) => {
     if (!file || file.name !== input.params.name) fail("INVALID_REQUEST", "上传文件名与元数据不符");
     const result = await repository.upload(input, file); return { result, workspaceId: input.workspaceId, revision: result.revision };
