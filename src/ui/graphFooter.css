@@ -1,0 +1,26 @@
+/* 控件与小地图共享网格。断点使用画布实际宽度，桌面侧栏也会触发紧凑布局。 */
+.graph-stage { container: graph-stage / inline-size; }
+.graph-footer { position: absolute; z-index: 2; left: 20px; right: 14px; bottom: max(14px, env(safe-area-inset-bottom)); display: grid; grid-template-columns: minmax(0, 1fr) 144px; gap: 8px 16px; align-items: end; pointer-events: none; }
+.graph-footer .canvas-controls { grid-column: 1; grid-row: 1; justify-self: start; display: flex; align-items: center; gap: 2px; max-width: 100%; flex-wrap: wrap; padding: 4px; border: 1px solid #e2e9d9; border-radius: 9px; background: #fffef9ec; box-shadow: 0 2px 10px #4c63400a; pointer-events: auto; }
+.graph-footer .canvas-controls button { border: 0; background: transparent; font-size: 10px; }
+.graph-footer .canvas-controls output { width: 35px; font-size: 10px; color: #8da17e; text-align: center; font-variant-numeric: tabular-nums; }
+.graph-footer .canvas-controls button { min-height: 44px; min-width: 44px; padding: 8px; white-space: nowrap; }
+.graph-footer .graph-status { position: static; grid-column: 1; grid-row: 2; min-width: 0; max-width: none; font-size: 10px; line-height: 1.5; color: #7e9078; overflow-wrap: anywhere; }
+.graph-footer .graph-status span { display: block; margin: 0; }
+.graph-overview-slot { grid-column: 2; grid-row: 1 / span 2; width: 144px; height: 92px; }
+.graph-footer .region-caption.down { bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%); }
+.graph-footer:not(.has-overview) { grid-template-columns: minmax(0, 1fr); }
+.graph-overview-slot[hidden] { display: none; }
+@container graph-stage (max-width: 560px) {
+  .graph-footer { left: 12px; right: 12px; gap: 10px 12px; }
+  .graph-footer .canvas-controls { grid-column: 1 / -1; grid-row: 1; }
+  .graph-footer .region-caption.down { position: static; grid-column: 1 / -1; grid-row: 2; justify-self: center; transform: none; }
+  .graph-footer .graph-status { grid-column: 1; grid-row: 3; align-self: end; font-size: 9px; }
+  .graph-overview-slot { grid-column: 2; grid-row: 3; }
+}
+@container graph-stage (max-width: 360px) {
+  .graph-footer { grid-template-columns: minmax(0, 1fr) 104px; gap: 8px; }
+  .graph-overview-slot { width: 104px; height: 68px; }
+  .graph-footer .canvas-controls { width: 100%; justify-content: space-between; }
+  .graph-footer .canvas-controls button { padding-inline: 6px; }
+}

@@ -6,11 +6,13 @@ import { yCollab, yUndoManagerKeymap } from "y-codemirror.next";
 import type { CrdtAdapter } from "../adapter";
 import { YjsFileSession } from "./yjsSession";
 import { yjsTextCodec } from "./yjsTextCodec";
+import "./editors.css";
 
 export const collaborativeTextAdapter: CrdtAdapter = {
   mode: "crdt", contentType: "text/plain", codec: yjsTextCodec,
   mount(element, file, ordinal) {
     const content = document.createElement("div"), status = document.createElement("p"), retry = document.createElement("button");
+    content.className = "kinship-collaborative-editor"; status.className = "kinship-section-status";
     status.setAttribute("role", "status"); status.textContent = "正在装入协作状态…"; retry.textContent = "重试未确认的同步";
     element.append(content, retry, status);
     let session: YjsFileSession | undefined, view: EditorView | undefined, disposed = false;

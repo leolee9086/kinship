@@ -9,13 +9,6 @@
 .body-section-heading strong { font-size: 14px; }
 .body-section-heading span { font-size: 11px; color: #68766c; }
 .body-section-editor { min-width: 0; }
-.body-section-editor > div:not(.vditor) { display: flex; gap: 8px; }
-.body-section-editor p[role=status] { font-size: 12px; margin: 8px 0 0; color: #586d61; }
-.body-section-editor .vditor { font-family: inherit; border: 1px solid #d3dacf; margin-bottom: 9px; }
-.body-section-editor .vditor button { border: 0; background: transparent; padding: 0; border-radius: 0; }
-.body-section-editor .cm-editor { display: block; width: 100%; min-height: 180px; border: 1px solid #cdd5cb; border-radius: 5px; font: 14px/1.7 Consolas, monospace; }
-.body-section-editor .cm-scroller { min-height: 180px; overflow: auto; }
-.body-section-editor .cm-content { white-space: pre-wrap; }
 .body-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .body-columns > .body-section + .body-section { border-left: 1px solid var(--line); }
 .body-dialog > footer { display: block; padding: 12px 24px; }

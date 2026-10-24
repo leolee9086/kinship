@@ -41,8 +41,8 @@ export class PlexScene {
   private mapDots = new Graphics();
   private mapView = new Graphics();
   private mapTransform = { x: 0, y: 0, scale: 1 };
-  private readonly mapWidth = 144;
-  private readonly mapHeight = 92;
+  private mapWidth = 0;
+  private mapHeight = 0;
   private renderedEdges: Array<Curve & { alpha: number; color: number }> = [];
 
   constructor(private app: Application, private host: HTMLDivElement, props: PixiGraphProps) {
@@ -80,7 +80,9 @@ export class PlexScene {
   update(props: PixiGraphProps) {
     const dataChanged = this.props.nodes !== props.nodes || this.props.curves !== props.curves
       || this.props.level !== props.level || this.props.curveStyle !== props.curveStyle;
+    const overviewChanged = this.props.overviewRect !== props.overviewRect;
     this.props = props;
+    if (overviewChanged) this.positionOverview();
     if (props.camera !== this.lastCameraInput) {
       this.lastCameraInput = props.camera;
       this.targetCamera = { ...props.camera };
@@ -101,8 +103,7 @@ export class PlexScene {
     this.app.renderer.resize(width, height);
     this.props.onCameraChange(this.camera);
     this.props.onViewportChange(width, height);
-    this.overview.position.set(width - this.mapWidth - 14, height - this.mapHeight - 14);
-    this.drawOverview();
+    this.positionOverview();
     this.wake();
   }
 
@@ -370,9 +371,16 @@ export class PlexScene {
     return relation ? `edge/${relation}` : null;
   }
 
+  private positionOverview() {
+    const rect = this.props.overviewRect;
+    this.mapWidth = rect?.width ?? 0; this.mapHeight = rect?.height ?? 0;
+    this.overview.position.set(rect?.x ?? 0, rect?.y ?? 0);
+    this.drawOverview();
+  }
+
   private drawOverview() {
     this.mapBase.clear(); this.mapDots.clear();
-    this.overview.visible = this.props.nodes.length > 1;
+    this.overview.visible = this.props.nodes.length > 1 && this.mapWidth > 0 && this.mapHeight > 0;
     if (!this.overview.visible) return;
     this.mapBase.roundRect(0, 0, this.mapWidth, this.mapHeight, 9)
       .fill({ color: 0xffffff, alpha: 0.94 }).stroke({ width: 1, color: 0xd8e0eb });
@@ -426,7 +434,7 @@ export class PlexScene {
       edges: this.renderedEdges.map(c => ({ ...c })),
       relationLabels: [...this.relationLabels].map(([id, label]) => ({ id, text: label.text.text,
         x: label.box.x, y: label.box.y, alpha: label.box.alpha })),
-      minimap: { x: this.overview.x, y: this.overview.y, width: this.mapWidth, height: this.mapHeight },
+      minimap: { x: this.overview.x, y: this.overview.y, width: this.mapWidth, height: this.mapHeight, visible: this.overview.visible },
     };
   }
 

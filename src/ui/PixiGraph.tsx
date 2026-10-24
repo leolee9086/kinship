@@ -27,6 +27,8 @@ export interface Camera {
   /** 聚焦/视图命令平滑过渡，手指和滚轮输入即时跟随。 */
   animate?: boolean;
 }
+/** 小地图只消费DOM底栏实测的视口相对矩形；场景不自设响应式断点。 */
+export interface OverviewRect { x: number; y: number; width: number; height: number }
 export interface PixiGraphProps {
   nodes: PixiNode[];
   curves: PixiCurve[];
@@ -36,6 +38,7 @@ export interface PixiGraphProps {
   onRelationClick: (id: ConceptId) => void;
   selectedRelation: ConceptId | null;
   onViewportChange: (width: number, height: number) => void;
+  overviewRect: OverviewRect | null;
   curveStyle: CurveStyle;
   showRelationLabels: boolean;
   level: "far" | "mid" | "near";

@@ -3,11 +3,11 @@
 ## Modified Vditor for Kramdown section files
 
 - Source repository: https://github.com/leolee9086/vditor, branch `kinship/section-adapter`.
-- Pinned source SHA: `c23029db46cdfbcd6feb0dc4de76df159ff70d4f`.
+- Pinned source SHA: `65a4031c2915c458dd4eadea2976827e4f1e400d`.
 - Upstream base SHA: `3a0c64cf97345c2b8a0e1d6d53abbc787d53988c`; original MIT license and author attribution are retained.
-- Package: `vditor@4.0.1-kinship.1`, [vditor-4.0.1-kinship.1.tgz](./vditor-4.0.1-kinship.1.tgz).
-- SHA-256: `3b17d260242308b2a0abca9f10e145a7761cb1fbdee17c035cdba2309498a3a7`.
-- pnpm integrity: `sha512-YcrXKJ3HVhf75AGonP+m6DXZ4LbekOlUJzMEFMmWARGgCsYxYmi2l+pEBqeGu89vBqL9vw1NL18BnYE0WImqvg==`.
+- Package: `vditor@4.0.1-kinship.2`, [vditor-4.0.1-kinship.2.tgz](./vditor-4.0.1-kinship.2.tgz).
+- SHA-256: `2b076fd50f0e40a56016f8fd025ff12c95b12a3ae0bcb2c93625f57a4e0c79df`.
+- pnpm integrity: `sha512-CrjUfpFt4UtNyYtl5OI130XJ/b5gh7njYYRPHiXHcwFhVJFKiD2S8PnFsKzudzNb3tYxiRh47XsQsKV8dqmuug==`.
 
 This is the modified source-mode editor, not an unmodified upstream package. It adds exact `getFileText()` and `setFileText(text)` methods: no appended newline, NBSP conversion, or remote-load input callback. Source-mode loads reset editor undo. Other editor modes reject these exact-file APIs. Kinship's whole-file adapter receives only a `TextFile`, ordinal, and DOM lifecycle; the fork has no graph, workspace, version, transaction, or host-command dependency. CRDT is a separate CodeMirror/Yjs adapter, never a partial mode of this Vditor adapter.
 

@@ -1,6 +1,7 @@
 /** 默认 Kramdown 适配器。所有主体状态均封装在 file 后面，不导入领域或命令模块。 */
 import Vditor from "vditor";
 import "vditor/dist/index.css";
+import "./editors.css";
 import type { WholeFileAdapter } from "../adapter";
 
 export const kramdownAdapter: WholeFileAdapter = {
@@ -8,6 +9,7 @@ export const kramdownAdapter: WholeFileAdapter = {
   mount(element, file, ordinal) {
     const editorHost = document.createElement("div"), controls = document.createElement("div"), status = document.createElement("p");
     const save = document.createElement("button"), reload = document.createElement("button");
+    editorHost.className = "kinship-kramdown-editor"; controls.className = "kinship-section-controls"; status.className = "kinship-section-status";
     save.textContent = "保存本区段"; reload.textContent = "重新读取文件";
     status.setAttribute("role", "status"); controls.append(save, reload); element.append(editorHost, controls, status);
     let editor: Vditor | undefined, baseline = "", dirty = false, saving = false, disposed = false, ready = false;
@@ -56,6 +58,8 @@ export const kramdownAdapter: WholeFileAdapter = {
         cdn: new URL("vditor", document.baseURI).href,
         cache: { enable: false }, counter: { enable: false },
         toolbar: ["undo", "redo", "bold", "italic", "list", "link", "code", "table"],
+        // 显隐及焦点属于编辑器自身，正文主体不用识别工具栏DOM或编辑器内部状态。
+        toolbarConfig: { revealOnFocus: true },
         preview: { mode: "both", actions: [], hljs: { enable: false } },
         input: () => {
           if (!ready || !editor) return;

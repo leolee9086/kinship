@@ -10,7 +10,8 @@ import { ConceptDetails } from "./ConceptDetails";
 import { LifecycleNotice } from "./LifecycleNotice";
 import { useConceptLifecycle } from "./useConceptLifecycle";
 import { projectGraph, relationColor } from "../domain/projection";
-import { PixiGraph, type Camera, type PixiNode } from "./PixiGraph";
+import { PixiGraph, type Camera, type PixiNode, type OverviewRect } from "./PixiGraph";
+import { GraphFooter } from "./GraphFooter";
 import { buildCurves, type CurveStyle } from "./edges";
 import { perspectivePreset } from "../domain/perspectives";
 import { PerspectiveControls } from "./PerspectiveControls";
@@ -64,6 +65,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const workspace = useRef<HTMLElement>(null);
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 0.82 });
   const [viewport, setViewport] = useState({ width: 800, height: 600 });
+  const [overviewRect, setOverviewRect] = useState<OverviewRect | null>(null);
   const curveStyle: CurveStyle = settings.curve;
   const search = useRef<HTMLInputElement>(null);
   const history = useRef<string[]>([]);
@@ -172,16 +174,17 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
         </div>
         {focus && projection ? <PixiGraph nodes={nodes} curves={curves} camera={camera} onCameraChange={setCamera} onNodeClick={choose}
           onRelationClick={id => { setInspected(id); setPanel("details"); }} selectedRelation={selected?.participants ? selected.id : null}
-          onViewportChange={onViewport} curveStyle={curveStyle} showRelationLabels={settings.showRelationLabels}
+          onViewportChange={onViewport} overviewRect={overviewRect} curveStyle={curveStyle} showRelationLabels={settings.showRelationLabels}
           level={camera.zoom < 0.4 ? "far" : camera.zoom < 0.85 ? "mid" : "near"} />
           : <div className="graph-empty"><h2>从一个概念开始</h2><p>在概念库中选择焦点，或创建新的概念。</p><button className="primary" onClick={() => setLibrary(true)}>打开概念库</button></div>}
-        <div className="region-caption up">上方</div><div className="region-caption down">下方</div>
+        <div className="region-caption up">上方</div>
         <div className="region-caption left">左侧</div><div className="region-caption right">右侧</div>
         {focus && <div className="focus-card"><span className="eyebrow">CURRENT FOCUS</span><strong>{index.get(focus).label}</strong><span>{index.get(focus).forgotten ? "已遗忘：当前仅查看此概念，可在详情恢复。" : excluded.has(focus) ? "参与引用包含已遗忘概念，画布暂不展开此关系。" : perspective.description}</span>
           {!!projection?.related.length && <button className="related-trigger" onClick={() => setPanel("related")}>相关 · {projection.related.length} ↗</button>}
         </div>}
-        <div className="canvas-controls"><button aria-label="缩小" onClick={() => setCamera(c => ({ ...c, zoom: Math.max(0.04, c.zoom / 1.2) }))}>−</button><output>{Math.round(camera.zoom * 100)}%</output><button aria-label="放大" onClick={() => setCamera(c => ({ ...c, zoom: Math.min(4, c.zoom * 1.2) }))}>＋</button><button onClick={recenter}>回到焦点</button><button onClick={fit}>适应邻域</button></div>
-        <div className="graph-status">{nodes.length} 个显示概念 · {curves.length} 条连接投影 <span>全库 {index.concepts.length} 概念 / {relationCount} 关系实例</span>{!!projection?.omitted && <span className="limit-note">邻域显示上限 {projection.budget}，另有 {projection.omitted} 个已发现概念；搜索可聚焦完整概念库。</span>}</div>
+        <GraphFooter camera={camera} displayed={nodes.length} connections={curves.length} concepts={index.concepts.length} relations={relationCount}
+          omitted={projection?.omitted ?? 0} budget={projection?.budget ?? 0} onOverviewChange={setOverviewRect}
+          onZoom={factor => setCamera(c => ({ ...c, zoom: Math.max(0.04, Math.min(4, c.zoom * factor)) }))} onRecenter={recenter} onFit={fit} />
       </section>
       {panel && <aside className="inspector"><header><div><span className="eyebrow">{panel === "settings" ? "MAKE IT YOURS" : "CONCEPT ATLAS"}</span><h2>{({ settings: "展示设置", perspective: "视角配置", related: "收起的相关关系", details: "概念详情" })[panel]}</h2></div><button aria-label="关闭侧面板" onClick={() => setPanel(null)}>×</button></header>
         {panel === "settings" ? <ViewSettings adapter={adapter} settings={settings} view={view} index={index} legend={legend} onChange={graph.changeSettings} onError={graph.reportError} />

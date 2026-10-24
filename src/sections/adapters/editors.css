@@ -1,0 +1,9 @@
+/* 编辑器内部的类名留在适配器层；正文主体只设置挂载区和区段布局。 */
+.kinship-kramdown-editor { font-family: inherit; border: 1px solid #d3dacf; margin-bottom: 9px; }
+.kinship-kramdown-editor.vditor button { border: 0; background: transparent; padding: 0; border-radius: 0; }
+.kinship-collaborative-editor { min-width: 0; }
+.kinship-collaborative-editor .cm-editor { display: block; width: 100%; min-height: 180px; border: 1px solid #cdd5cb; border-radius: 5px; font: 14px/1.7 Consolas, monospace; }
+.kinship-collaborative-editor .cm-scroller { min-height: 180px; overflow: auto; }
+.kinship-collaborative-editor .cm-content { white-space: pre-wrap; }
+.kinship-section-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.kinship-section-status { font-size: 12px; margin: 8px 0 0; color: #586d61; }

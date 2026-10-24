@@ -21,9 +21,6 @@
 .graph-toolbar .view-select select { min-height: 40px; max-width: 156px; font-size: 12px; }
 .focus-card { top: 86px; left: 24px; pointer-events: none; }
 .focus-card button { pointer-events: auto; min-height: 40px; }
-.canvas-controls { left: 20px; bottom: 52px; gap: 2px; padding: 4px; }
-.canvas-controls button { min-height: 40px; min-width: 40px; padding: 8px 10px; }
-.graph-status { left: 24px; bottom: 20px; }
 .settings-legend { display: flex; flex-direction: column; gap: 10px; }
 .settings-legend > label { display: flex !important; align-items: center; gap: 10px; margin: 0 !important; color: var(--ink); }
 .settings-legend input[type=color] { width: 32px; height: 32px; flex-shrink: 0; }
@@ -56,9 +53,5 @@
   .graph-toolbar > button { min-height: 40px; padding: 6px 8px; }
   .graph-toolbar .view-select select { max-width: 120px; font-size: 11px; }
   .focus-card { top: 78px; left: 18px; max-width: calc(100% - 36px); }
-  .canvas-controls { left: 12px; bottom: 64px; }
-  .canvas-controls button { min-height: 44px; padding: 8px; }
-  .graph-status { left: 16px; bottom: 20px; max-width: calc(100% - 32px); }
-  .region-caption.down { bottom: 140px; }
   .project-dialog-body { padding: 18px; }
 }

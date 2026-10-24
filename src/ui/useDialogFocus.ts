@@ -14,8 +14,6 @@ export function useDialogFocus(onEscape?: () => void) {
     const trap = (event: KeyboardEvent) => {
       // Escape也用于取消中文输入法候选，组合期间不能把它解释成关闭模态框。
       if (event.isComposing || event.keyCode === 229) return;
-      // 保存时按钮被禁用会让焦点短暂退到body；Escape仍属于当前模态框。
-      if (event.key === "Escape" && escape.current) { event.preventDefault(); event.stopPropagation(); escape.current(); return; }
       if (event.key !== "Tab") return;
       const items = focusable(), first = items[0], last = items.at(-1);
       if (!first) { event.preventDefault(); return; }
@@ -23,8 +21,15 @@ export function useDialogFocus(onEscape?: () => void) {
         event.preventDefault(); first.focus();
       } else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     };
+    // 嵌入编辑器先处理自己的弹层/工具栏 Escape；未消费的事件再交给模态框关闭。
+    // 此处只尊重普通 DOM 事件，保持宿主对具体编辑器内部结构无感。
+    const close = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || event.key !== "Escape" || !escape.current) return;
+      event.preventDefault(); event.stopPropagation(); escape.current();
+    };
     document.addEventListener("keydown", trap, true);
-    return () => { document.removeEventListener("keydown", trap, true);
+    document.addEventListener("keydown", close);
+    return () => { document.removeEventListener("keydown", trap, true); document.removeEventListener("keydown", close);
       if (opener.current instanceof HTMLElement && opener.current !== document.body && opener.current.isConnected) opener.current.focus();
       else if (fallback?.isConnected) fallback.focus(); };
   }, []);
