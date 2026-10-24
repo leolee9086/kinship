@@ -57,7 +57,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
   const excluded = explorationExclusions(index);
   const [tab, setTab] = useState<"instances" | "types" | "roles">("instances");
   const [editor, setEditor] = useState<{ mode: EditorMode; initial?: Concept; expectedVersion?: number } | null>(null);
-  const [bodyEditor, setBodyEditor] = useState<{ initial: Concept; version: number } | null>(null);
+  const [bodyEditor, setBodyEditor] = useState<{ initial: Concept; version: number; opener: Element | null } | null>(null);
   const [help, setHelp] = useState(false);
   const [importing, setImporting] = useState(false);
   const [reviewing, setReviewing] = useState(false);
@@ -198,7 +198,7 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
           : selected ? <ConceptDetails adapter={adapter} index={index} concept={selected} version={snapshot.conceptVersions[selected.id]} busy={graph.pending > 0}
             locked={lifecycle.locked} expanded={settings.expandedRelations.includes(selected.id)} actions={{ focus: choose, edit: openEditor, inspect: setInspected,
               toggleExpanded, deleteConcept: setDeleting, lifecycle: lifecycle.change, reportError: graph.reportError,
-              body: concept => setBodyEditor({ initial: structuredClone(concept), version: snapshot.conceptVersions[concept.id] }) }} />
+              body: concept => setBodyEditor({ initial: structuredClone(concept), version: snapshot.conceptVersions[concept.id], opener: document.activeElement }) }} />
             : <p className="empty-state">选择一个概念或点击一条关系线。</p>}
       </aside>}
     </div>
@@ -209,8 +209,16 @@ function Workspace({ adapter, projectControls, graph, snapshot }: AppProps & { g
     {importing && <GraphPackageImport adapter={adapter} onImport={graph.importGraph} onClose={() => setImporting(false)} />}
     {reviewing && <HistoryReview adapter={adapter} onClose={() => { setReviewing(false); requestAnimationFrame(() => workspace.current?.focus()); }} />}
     {bodyEditor && <Suspense fallback={<div className="modal-scrim"><p role="status">正在打开正文编辑器…</p></div>}><BodyEditor initial={bodyEditor.initial} version={bodyEditor.version} adapter={adapter} onClose={refresh => {
-      setBodyEditor(null);
-      if (refresh) void graph.reload().catch(() => { /* reload通过工作区错误栏报告失败。 */ });
+      const opener = bodyEditor.opener; setBodyEditor(null);
+      // 刷新会临时禁用详情按钮，通用模态清理此时无法恢复焦点；等刷新后的 React 提交再补回。
+      const restore = () => requestAnimationFrame(() => {
+        if (document.activeElement !== document.body && document.activeElement !== workspace.current) return;
+        // 不覆盖这段时间里已经移动到其他控件的焦点；原入口被卸载时回到工作区。
+        if (opener instanceof HTMLElement && opener.isConnected && !opener.matches(":disabled")) opener.focus();
+        else workspace.current?.focus();
+      });
+      if (refresh) void graph.reload().catch(() => { /* reload通过工作区错误栏报告失败。 */ }).finally(restore);
+      else restore();
     }} /></Suspense>}
     {editor && <ConceptEditor key={editor.initial?.id ?? editor.mode} index={index} initial={editor.initial} mode={editor.mode} focus={focus} busy={graph.pending > 0} onSave={saveConcept} onClose={() => setEditor(null)} />}
     {help && <div className="modal-scrim" onClick={() => setHelp(false)}><section className="help-dialog" role="dialog" aria-modal="true" aria-label="键盘帮助" onClick={e => e.stopPropagation()}><button className="close" onClick={() => setHelp(false)}>关闭</button><span className="eyebrow">FIND YOUR FLOW</span><h2>用键盘探索概念</h2><p>方向键沿屏幕方位切换焦点；Backspace 返回上一焦点。</p><dl><dt>/</dt><dd>搜索概念</dd><dt>Enter</dt><dd>编辑焦点</dd><dt>N</dt><dd>新建概念</dd><dt>R</dt><dd>新建关系</dd><dt>?</dt><dd>显示帮助</dd><dt>Esc</dt><dd>关闭面板</dd></dl><p>拖动平移，滚轮或双指缩放。点击关系线检查关系概念。</p></section></div>}
