@@ -1,7 +1,10 @@
 /** 正文保存扁平区段文件；普通内容没有通用树，布局也只保存自己的文本。 */
 import { Type, type Static } from "@sinclair/typebox";
 import { strictObject, UUIDSchema } from "./primitives";
-const identity = { id: UUIDSchema, version: Type.Integer({ minimum: 1 }) };
+const identity = { id: UUIDSchema, version: Type.Integer({ minimum: 1 }),
+  // 导入封套的原始 IAL 属于文件元数据，whole-file 编辑器仍只读写文件正文。
+  sourceIal: Type.Optional(Type.String({ maxLength: 8192 })),
+};
 const file = { ...identity, kind: Type.Literal("file"), contentType: Type.String({ minLength: 1, maxLength: 128 }) };
 export const WholeFileBlockSchema = strictObject({ ...file, mode: Type.Literal("whole-file"), text: Type.String({ maxLength: 1048576 }) });
 export const CrdtBlockSchema = strictObject({ ...file, mode: Type.Literal("crdt"),

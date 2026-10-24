@@ -8,6 +8,7 @@ import { validateSectionText } from "../sections/boundary";
 import { crdtCodec } from "../sections/codecs";
 import { readLayout } from "../sections/layout";
 import { decodeBinary, encodeBinary } from "../sections/binary";
+import { parseSectionAttributes } from "../format/sectionAttributes";
 export function newFile(contentType = "text/x-kramdown", text = "", mode: "whole-file" | "crdt" = "whole-file"): FileBlock {
   const base = { id: newId(), kind: "file" as const, version: 1, contentType };
   return mode === "whole-file" ? { ...base, mode, text } : { ...base, mode, state: encodeBinary(crdtCodec(contentType).initialize(text)) };
@@ -30,6 +31,10 @@ export function validateDocument(value: unknown): DocumentBody {
     const { id, depth } = stack.pop()!, block = blocks.get(id);
     assert(block, "正文区段不存在"); assert(depth <= 64, "布局嵌套超过 64 层");
     assert(!visited.has(id), "正文区段不能有多个父级或成环"); visited.add(id);
+    if (block.sourceIal !== undefined) {
+      try { parseSectionAttributes(block.sourceIal); }
+      catch (cause) { assert(false, cause instanceof Error ? cause.message : String(cause)); }
+    }
     validateFileText(fileText(block));
     if (block.kind === "layout") for (const child of readLayout(block.text).members) stack.push({ id: child, depth: depth + 1 });
   }
