@@ -11,14 +11,19 @@
 .body-section-editor { min-width: 0; }
 .body-text-transfer { flex-shrink: 0; border-bottom: 1px solid var(--line); font-size: 12px; }
 .body-text-transfer > summary { padding: 10px 20px; cursor: pointer; }
-.body-text-transfer-content { display: grid; gap: 8px; padding: 0 20px 12px; max-height: 46dvh; overflow: auto; }
+.body-text-transfer-content { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0 20px 12px; max-height: 46dvh; overflow: auto; }
 .body-text-transfer-content p { margin: 0; line-height: 1.5; }
 .body-text-transfer-content > button { justify-self: start; }
 .body-text-transfer-content label { display: grid; gap: 4px; }
 .body-text-transfer-content textarea { width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical; font: 12px/1.5 monospace; }
+.body-text-transfer-content input[type=file] { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.body-text-transfer-content span { overflow-wrap: anywhere; }
+.body-dialog .body-transfer-source { display: flex; flex-wrap: wrap; min-width: 0; gap: 8px 16px; margin: 0; padding: 6px 10px; }
+.body-transfer-source label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.body-text-transfer-content .body-transfer-source input[type=radio] { display: inline; width: auto; margin: 0; padding: 0; accent-color: var(--green); }
 .body-transfer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .body-transfer-status { flex-shrink: 0; padding: 8px 20px; margin: 0; font-size: 12px; border-bottom: 1px solid var(--line); }
-@media (pointer: coarse) { .body-text-transfer-content button, .body-text-transfer > summary { min-height: 44px; box-sizing: border-box; } }
+@media (pointer: coarse) { .body-text-transfer-content button, .body-text-transfer-content input[type=file], .body-transfer-source label, .body-text-transfer > summary { min-height: 44px; box-sizing: border-box; } }
 .body-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .body-columns > .body-section + .body-section { border-left: 1px solid var(--line); }
 .body-dialog > footer { display: block; padding: 12px 24px; }

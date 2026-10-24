@@ -10,6 +10,8 @@ import type { GraphRepository } from "./repository";
 import { queryGraphPackage } from "./packageQuery";
 import { previewImportFile } from "./importFile";
 import { MAX_IMPORT_FILE_BYTES } from "../contracts/importPreview";
+import { MAX_DOCUMENT_TEXT_BYTES } from "../contracts/documentText";
+import { previewDocumentTextFile } from "./documentTextFile";
 
 interface Reply { result: unknown; workspaceId: string; revision: number; binary?: Blob }
 const rank: Record<Role, number> = { guest: 0, collaborator: 1, administrator: 2 };
@@ -21,7 +23,8 @@ export function buildDataRouter(repository: GraphRepository) {
       let source: unknown;
       try {
         const uploaded = name === "upload" ? await readUpload(ctx.request)
-          : name === "previewImportFile" ? await readUpload(ctx.request, MAX_IMPORT_FILE_BYTES, 65536) : undefined;
+          : name === "previewImportFile" ? await readUpload(ctx.request, MAX_IMPORT_FILE_BYTES, 65536)
+          : name === "previewDocumentTextFile" ? await readUpload(ctx.request, MAX_DOCUMENT_TEXT_BYTES, 65536) : undefined;
         source = uploaded ? uploaded.source : await readJSON(ctx.request);
         // 注册表的 schema 与工作函数由同一个名字关联，动态分发处集中做这一次类型桥接。
         const input = readEnvelope(contract.request, source) as Request<M>;
@@ -44,6 +47,7 @@ export function buildDataRouter(repository: GraphRepository) {
   bind("readConcept", async input => { const reply = await repository.readConcept(input); return { result: reply.value, ...reply.context }; });
   bind("exportDocumentText", async input => { const reply = await repository.exportDocumentText(input); return { result: reply.value, ...reply.context }; });
   bind("previewDocumentText", async input => { const reply = await repository.previewDocumentText(input); return { result: reply.value, ...reply.context }; });
+  bind("previewDocumentTextFile", (input, file) => previewDocumentTextFile(repository, input, file));
   bind("exportGraph", input => queryGraphPackage(repository, input));
   bind("previewImportFile", (input, file) => previewImportFile(repository, input, file));
   bind("previewImport", async input => { const reply = await repository.previewImport(input); return { result: reply.value, ...reply.context }; });

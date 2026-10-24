@@ -5,7 +5,7 @@ import type { GraphPackage } from "../contracts/graphPackage";
 import type { ImportPreview } from "../contracts/importPreview";
 import type { HistoryConcept, HistoryPage } from "../contracts/history";
 import type { DocumentBody } from "../contracts/document";
-import type { DocumentTextPreview } from "../contracts/documentText";
+import { MAX_DOCUMENT_TEXT_BYTES, type DocumentTextPreview } from "../contracts/documentText";
 import type { TextFile, CrdtFile } from "../sections/adapter";
 import { createSectionFiles } from "./sectionFiles";
 import { verifyBodyCommit } from "./bodyResponse";
@@ -29,6 +29,7 @@ export interface DataAdapter {
   crdtFile(conceptId: string, fileId: string): CrdtFile;
   exportDocumentText(id: string): Promise<Result<"exportDocumentText">>;
   previewDocumentText(params: Request<"previewDocumentText">["params"]): Promise<DocumentTextPreview>;
+  previewDocumentTextFile(id: string, file: File, identity: Request<"previewDocumentText">["params"]["identity"]): Promise<Result<"previewDocumentTextFile">>;
   exportGraph(params: Request<"exportGraph">["params"]): Promise<GraphPackage>;
   previewImport(value: GraphPackage): Promise<ImportPreview>;
   previewImportFile(file: File): Promise<Result<"previewImportFile">>;
@@ -88,6 +89,10 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
       replica!.apply(commit); return commit; },
     exportDocumentText: async id => { await ready(); return client.call("exportDocumentText", { id }); },
     previewDocumentText: async params => { await ready(); return client.call("previewDocumentText", params); },
+    previewDocumentTextFile: async (id, file, identity) => {
+      if (file.size > MAX_DOCUMENT_TEXT_BYTES) fail("PAYLOAD_TOO_LARGE", "正文文本文件超过 1 MiB");
+      await ready(); return client.call("previewDocumentTextFile", { id, identity, name: file.name, size: file.size, sha256: await sha256(file) }, { file });
+    },
     exportGraph: async params => { await ready(); return client.call("exportGraph", params); },
     previewImport: async value => { await ready(); return client.call("previewImport", { package: value }); },
     previewImportFile: async file => { await ready(); return client.call("previewImportFile", {

@@ -11,7 +11,7 @@ import { verifyImportFile, verifyImportPreview } from "./importResponse";
 import { verifyCommit } from "./commitResponse";
 import { verifyDeletePreview, verifyDeletion } from "./deletionResponse";
 import { verifyHistoryConcept, verifyHistoryPage } from "./historyResponse";
-import { verifyDocumentTextPreview } from "./documentTextResponse";
+import { verifyDocumentTextFile, verifyDocumentTextPreview } from "./documentTextResponse";
 
 export interface CallOptions { commandId?: string; file?: File; signal?: AbortSignal }
 export type CallResult<M extends Method> = M extends "mediaContent" ? Blob : Result<M>;
@@ -27,7 +27,7 @@ export class RpcClient {
       ...(name === "bootstrap" ? {} : { workspaceId: this.workspaceId }), ...(commandId ? { commandId } : {}) };
     parse(contract.request, input);
     let body: unknown = input;
-    if (name === "upload" || name === "previewImportFile") {
+    if (name === "upload" || name === "previewImportFile" || name === "previewDocumentTextFile") {
       if (!options.file) fail("INVALID_REQUEST", "上传请求缺少文件");
       const form = new FormData(); form.set("request", JSON.stringify(input)); form.set("file", options.file, options.file.name); body = form;
     }
@@ -56,6 +56,8 @@ export class RpcClient {
       }
       if (envelope.ok && name === "previewDocumentText") verifyDocumentTextPreview(parse(registry.previewDocumentText.request, input).params.id,
         parse(registry.previewDocumentText.result, envelope.result, "INTERNAL_ERROR"));
+      if (envelope.ok && name === "previewDocumentTextFile") verifyDocumentTextFile(parse(registry.previewDocumentTextFile.request, input).params,
+        parse(registry.previewDocumentTextFile.result, envelope.result, "INTERNAL_ERROR"));
       if (envelope.ok && name === "historyList") verifyHistoryPage(parse(registry.historyList.result, envelope.result, "INTERNAL_ERROR"),
         parse(registry.historyList.request, input).params, envelope.context);
       if (envelope.ok && name === "historyConcept") verifyHistoryConcept(parse(registry.historyConcept.result, envelope.result, "INTERNAL_ERROR"),
