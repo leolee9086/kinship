@@ -11,6 +11,7 @@ import { verifyImportFile, verifyImportPreview } from "./importResponse";
 import { verifyCommit } from "./commitResponse";
 import { verifyDeletePreview, verifyDeletion } from "./deletionResponse";
 import { verifyHistoryConcept, verifyHistoryPage } from "./historyResponse";
+import { verifyDocumentTextPreview } from "./documentTextResponse";
 
 export interface CallOptions { commandId?: string; file?: File; signal?: AbortSignal }
 export type CallResult<M extends Method> = M extends "mediaContent" ? Blob : Result<M>;
@@ -49,6 +50,12 @@ export class RpcClient {
         parse(registry.previewDelete.request, input).params.id, envelope.context);
       if (envelope.ok && name === "deleteConcept") verifyDeletion(parse(registry.deleteConcept.result, envelope.result, "INTERNAL_ERROR"),
         parse(registry.deleteConcept.request, input).params);
+      if (envelope.ok && name === "exportDocumentText") {
+        if (parse(registry.exportDocumentText.result, envelope.result, "INTERNAL_ERROR").id !== parse(registry.exportDocumentText.request, input).params.id)
+          throw new Error("document export target mismatch");
+      }
+      if (envelope.ok && name === "previewDocumentText") verifyDocumentTextPreview(parse(registry.previewDocumentText.request, input).params.id,
+        parse(registry.previewDocumentText.result, envelope.result, "INTERNAL_ERROR"));
       if (envelope.ok && name === "historyList") verifyHistoryPage(parse(registry.historyList.result, envelope.result, "INTERNAL_ERROR"),
         parse(registry.historyList.request, input).params, envelope.context);
       if (envelope.ok && name === "historyConcept") verifyHistoryConcept(parse(registry.historyConcept.result, envelope.result, "INTERNAL_ERROR"),

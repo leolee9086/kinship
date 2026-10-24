@@ -8,6 +8,8 @@ export interface GraphRepository {
   bootstrap(): Promise<Bootstrap>;
   readConcept(input: Request<"readConcept">): Promise<QueryValue<Result<"readConcept">>>;
   apply(input: Request<"apply">): Promise<Commit>;
+  exportDocumentText(input: Request<"exportDocumentText">): Promise<QueryValue<Result<"exportDocumentText">>>;
+  previewDocumentText(input: Request<"previewDocumentText">): Promise<QueryValue<Result<"previewDocumentText">>>;
   previewDelete(input: Request<"previewDelete">): Promise<QueryValue<Result<"previewDelete">>>;
   deleteConcept(input: Request<"deleteConcept">): Promise<Commit>;
   previewImport(input: Request<"previewImport">): Promise<QueryValue<Result<"previewImport">>>;

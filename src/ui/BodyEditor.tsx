@@ -12,6 +12,7 @@ import { kramdownAdapter } from "../sections/adapters/kramdown";
 import { collaborativeTextAdapter } from "../sections/adapters/collaborativeText";
 import type { BlockAdapter, MountedAdapter } from "../sections/adapter";
 import { useDialogFocus } from "./useDialogFocus";
+import { BodyTextTransfer } from "./BodyTextTransfer";
 import "./body.css";
 const adapters: BlockAdapter[] = [kramdownAdapter, collaborativeTextAdapter];
 interface Props { initial: Concept; version: number; adapter: DataAdapter; onClose(refresh: boolean): void }
@@ -56,22 +57,23 @@ export function BodyEditor({ initial, version, adapter, onClose }: Props) {
       .catch(cause => { if (active) setError(String(cause)); });
     return () => { active = false; };
   }, [adapter, initial.id]);
-  const changeStructure = async (transform?: (body: DocumentBody | undefined) => DocumentBody, remount = false) => {
-    if (running.current) return; running.current = true; setSaving(true); setError(null);
+  const changeStructure = async (transform?: (body: DocumentBody | undefined) => DocumentBody, remount = false, expectedVersion?: number): Promise<boolean> => {
+    if (running.current) return false; running.current = true; setSaving(true); setError(null);
     try {
-      if (remount && !await prepareRemount()) return;
+      if (remount && !await prepareRemount()) return false;
       if (!pending.current) {
-        if (!transform) return;
+        if (!transform) return false;
         const fresh = await adapter.readConcept(initial.id);
+        if (expectedVersion !== undefined && fresh.version !== expectedVersion) throw new Error("导入预览已过期，请重新预览正文文本");
         pending.current = { initial: fresh.concept, version: fresh.version, body: transform(fresh.concept.body), commandId: newId() };
       }
       const request = pending.current;
       const commit = await adapter.saveBody(request.initial, request.body, request.version, { commandId: request.commandId });
-      setRecord(commit.changes.put[0]); pending.current = undefined; setUnknown(false);
+      setRecord(commit.changes.put[0]); pending.current = undefined; setUnknown(false); return true;
     } catch (cause) {
       const uncertain = cause instanceof RpcError && cause.fault.code === "RESULT_UNKNOWN";
       setUnknown(uncertain); if (!uncertain) pending.current = undefined;
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(cause instanceof Error ? cause.message : String(cause)); return false;
     } finally { running.current = false; setSaving(false); }
   };
   const add = (mode: "whole-file" | "crdt") => changeStructure(body => {
@@ -129,6 +131,8 @@ export function BodyEditor({ initial, version, adapter, onClose }: Props) {
     <header><div><span className="eyebrow">DOCUMENT</span><h2 id="body-title">{initial.label} · 正文</h2></div><button onClick={handleClose} disabled={locked} aria-label="关闭正文编辑器">×</button></header>
     <div className="body-toolbar" role="toolbar" aria-label="区段结构"><button onClick={() => void add("whole-file")} disabled={locked}>＋ Kramdown 区段</button><button onClick={() => void add("crdt")} disabled={locked}>＋ 协作纯文本</button>
       <button onClick={() => void columns()} disabled={locked || (body?.roots.length ?? 0) < 2}>末两区段分栏</button></div>
+    <BodyTextTransfer adapter={adapter} ownerId={initial.id} disabled={locked} prepare={prepareRemount}
+      onImport={(candidate, expected) => changeStructure(() => candidate, true, expected)} />
     <div className="body-content" aria-busy={locked} {...(locked ? { inert: "" } : {})}>{(!body || body.roots.length === 0) && <p>正文尚无内容。添加一个区段开始编辑。</p>}{body?.roots.map((id, index) => <div key={id} className="body-root">
       <div className="body-order"><button onClick={() => void move(id, -1)} disabled={locked || index === 0} aria-label={`上移第 ${index + 1} 个区段`}>↑</button>
         <button onClick={() => void move(id, 1)} disabled={locked || index === body.roots.length - 1} aria-label={`下移第 ${index + 1} 个区段`}>↓</button>

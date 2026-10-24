@@ -42,6 +42,8 @@ export function buildDataRouter(repository: GraphRepository) {
   bind("bootstrap", async () => { const result = await repository.bootstrap();
     return { result, workspaceId: result.workspaceId, revision: result.revision }; });
   bind("readConcept", async input => { const reply = await repository.readConcept(input); return { result: reply.value, ...reply.context }; });
+  bind("exportDocumentText", async input => { const reply = await repository.exportDocumentText(input); return { result: reply.value, ...reply.context }; });
+  bind("previewDocumentText", async input => { const reply = await repository.previewDocumentText(input); return { result: reply.value, ...reply.context }; });
   bind("exportGraph", input => queryGraphPackage(repository, input));
   bind("previewImportFile", (input, file) => previewImportFile(repository, input, file));
   bind("previewImport", async input => { const reply = await repository.previewImport(input); return { result: reply.value, ...reply.context }; });

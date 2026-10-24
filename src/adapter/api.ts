@@ -5,6 +5,7 @@ import type { GraphPackage } from "../contracts/graphPackage";
 import type { ImportPreview } from "../contracts/importPreview";
 import type { HistoryConcept, HistoryPage } from "../contracts/history";
 import type { DocumentBody } from "../contracts/document";
+import type { DocumentTextPreview } from "../contracts/documentText";
 import type { TextFile, CrdtFile } from "../sections/adapter";
 import { createSectionFiles } from "./sectionFiles";
 import { verifyBodyCommit } from "./bodyResponse";
@@ -26,6 +27,8 @@ export interface DataAdapter {
   readConcept(id: string): Promise<Result<"readConcept">>;
   textFile(conceptId: string, fileId: string): TextFile;
   crdtFile(conceptId: string, fileId: string): CrdtFile;
+  exportDocumentText(id: string): Promise<Result<"exportDocumentText">>;
+  previewDocumentText(params: Request<"previewDocumentText">["params"]): Promise<DocumentTextPreview>;
   exportGraph(params: Request<"exportGraph">["params"]): Promise<GraphPackage>;
   previewImport(value: GraphPackage): Promise<ImportPreview>;
   previewImportFile(file: File): Promise<Result<"previewImportFile">>;
@@ -83,6 +86,8 @@ export function createHttpAdapter(dispatch: Dispatch): DataAdapter {
     previewDelete: async id => { await ready(); return client.call("previewDelete", { id }); },
     deleteConcept: async (params, options) => { await ready(); const commit = await client.call("deleteConcept", params, options);
       replica!.apply(commit); return commit; },
+    exportDocumentText: async id => { await ready(); return client.call("exportDocumentText", { id }); },
+    previewDocumentText: async params => { await ready(); return client.call("previewDocumentText", params); },
     exportGraph: async params => { await ready(); return client.call("exportGraph", params); },
     previewImport: async value => { await ready(); return client.call("previewImport", { package: value }); },
     previewImportFile: async file => { await ready(); return client.call("previewImportFile", {

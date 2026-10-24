@@ -16,6 +16,7 @@ import { executeImport } from "./importTransaction";
 import { queryDeletion } from "./deletionQuery";
 import { executeDeletion } from "./deletionTransaction";
 import { queryHistoryConcept, queryHistoryList } from "./historyQuery";
+import { queryDocumentExport, queryDocumentPreview } from "./documentTextQuery";
 
 async function fingerprint(method: Method, input: Request<"apply"> | Request<"upload"> | Request<"importGraph"> | Request<"deleteConcept">): Promise<string> {
   return sha256(canonicalJSON({ version: input.version, operation: registry[method].path, workspaceId: input.workspaceId, params: input.params }));
@@ -30,6 +31,12 @@ export class IndexedDbRepository implements GraphRepository {
   async readConcept(source: Request<"readConcept">) {
     const input = parse(registry.readConcept.request, source);
     return queries.readConcept(await this.opening, input.workspaceId, input.params.id);
+  }
+  async exportDocumentText(source: Request<"exportDocumentText">) {
+    return queryDocumentExport(await this.opening, parse(registry.exportDocumentText.request, source));
+  }
+  async previewDocumentText(source: Request<"previewDocumentText">) {
+    return queryDocumentPreview(await this.opening, parse(registry.previewDocumentText.request, source));
   }
   async previewImport(source: Request<"previewImport">) {
     return queryImportPreview(await this.opening, parse(registry.previewImport.request, source));

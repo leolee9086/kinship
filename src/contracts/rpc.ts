@@ -9,6 +9,7 @@ import { ImportFileParamsSchema, ImportFileResultSchema, ImportGraphParamsSchema
 
 import { DeleteParamsSchema, DeletePreviewSchema } from "./deletion";
 import { HistoryConceptParamsSchema, HistoryConceptSchema, HistoryListParamsSchema, HistoryPageSchema } from "./history";
+import { DocumentTextParamsSchema, PreviewDocumentTextParamsSchema, ExportDocumentTextSchema, PreviewDocumentTextSchema } from "./documentText";
 
 const base = { protocol: Type.Literal("kinship.rpc"), version: Type.Literal(1), requestId: UUIDSchema };
 const scoped = { ...base, workspaceId: UUIDSchema };
@@ -26,6 +27,10 @@ export const registry = {
     request: strictObject({ ...base, params: strictObject({}) }), result: BootstrapSchema },
   readConcept: { path: "/rpc/v1/concepts/read", kind: "query", role: "guest",
     request: strictObject({ ...scoped, params: strictObject({ id: UUIDSchema }) }), result: ConceptRecordSchema },
+  exportDocumentText: { path: "/rpc/v1/documents/text/export", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: DocumentTextParamsSchema }), result: ExportDocumentTextSchema },
+  previewDocumentText: { path: "/rpc/v1/documents/text/preview", kind: "query", role: "guest",
+    request: strictObject({ ...scoped, params: PreviewDocumentTextParamsSchema }), result: PreviewDocumentTextSchema },
   exportGraph: { path: "/rpc/v1/graph/export", kind: "query", role: "guest",
     request: strictObject({ ...scoped, params: ExportGraphParamsSchema }), result: GraphPackageSchema },
   previewImportFile: { path: "/rpc/v1/graph/import/file", kind: "query", role: "guest",
