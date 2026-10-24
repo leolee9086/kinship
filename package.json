@@ -27,7 +27,7 @@
     "pixi.js": "^8.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "vditor": "file:vendor/vditor-4.0.1-kinship.2.tgz",
+    "vditor": "file:vendor/vditor-4.0.1-kinship.3.tgz",
     "y-codemirror.next": "0.3.6",
     "yjs": "13.6.33",
     "zod": "4.4.3"

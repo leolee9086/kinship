@@ -42,8 +42,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       vditor:
-        specifier: file:vendor/vditor-4.0.1-kinship.2.tgz
-        version: file:vendor/vditor-4.0.1-kinship.2.tgz
+        specifier: file:vendor/vditor-4.0.1-kinship.3.tgz
+        version: file:vendor/vditor-4.0.1-kinship.3.tgz
       y-codemirror.next:
         specifier: 0.3.6
         version: 0.3.6(@codemirror/state@6.7.6)(@codemirror/view@6.43.15)(yjs@13.6.33)
@@ -870,9 +870,9 @@ packages:
     peerDependencies:
       browserslist: '>= 4.21.0'
 
-  vditor@file:vendor/vditor-4.0.1-kinship.2.tgz:
-    resolution: {integrity: sha512-CrjUfpFt4UtNyYtl5OI130XJ/b5gh7njYYRPHiXHcwFhVJFKiD2S8PnFsKzudzNb3tYxiRh47XsQsKV8dqmuug==, tarball: file:vendor/vditor-4.0.1-kinship.2.tgz}
-    version: 4.0.1-kinship.2
+  vditor@file:vendor/vditor-4.0.1-kinship.3.tgz:
+    resolution: {integrity: sha512-dIftQD8ObJdvw/Gz66CHsl3P8kPvsdfgxrsygtGdEY7kqKSD+gbSPK7zjWfDDk1q2/U2UCcUVm/Hx+bkkoBygg==, tarball: file:vendor/vditor-4.0.1-kinship.3.tgz}
+    version: 4.0.1-kinship.3
 
   vite-node@2.1.9:
     resolution: {integrity: sha512-AM9aQ/IPrW/6ENLQg3AGY4K1N2TGZdR5e4gu/MmmR2xR3Ll1+dib+nook92g4TV3PXVyeyxdWwtaCAiUL0hMxA==}
@@ -1666,7 +1666,7 @@ snapshots:
       escalade: 3.2.0
       picocolors: 1.1.1
 
-  vditor@file:vendor/vditor-4.0.1-kinship.2.tgz:
+  vditor@file:vendor/vditor-4.0.1-kinship.3.tgz:
     dependencies:
       diff-match-patch: 1.0.5
 
