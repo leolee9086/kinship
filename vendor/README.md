@@ -2,14 +2,14 @@
 
 ## Modified Vditor for Kramdown section files
 
-- Source repository: https://github.com/leolee9086/vditor, branch `kinship/section-adapter`.
-- Pinned source SHA: `2c86c9b37e6fb40bc592133564783912c59c582c`.
+- Source repository: https://github.com/leolee9086/vditor, branch `kinship/source-task-toggle`.
+- Pinned source SHA: `454159ed16ff6a72f04e3ba615a940133463878a`.
 - Upstream base SHA: `3a0c64cf97345c2b8a0e1d6d53abbc787d53988c`; original MIT license and author attribution are retained.
-- Package: `vditor@4.0.1-kinship.3`, [vditor-4.0.1-kinship.3.tgz](./vditor-4.0.1-kinship.3.tgz).
-- SHA-256: `4a2203041c3992813000e26313750ad289a21dcbf2ea94c9c1ceaa87cb976da3`.
-- pnpm integrity: `sha512-dIftQD8ObJdvw/Gz66CHsl3P8kPvsdfgxrsygtGdEY7kqKSD+gbSPK7zjWfDDk1q2/U2UCcUVm/Hx+bkkoBygg==`.
+- Package: `vditor@4.0.1-kinship.4`, [vditor-4.0.1-kinship.4.tgz](./vditor-4.0.1-kinship.4.tgz).
+- SHA-256: `be790627cb348ee3acc513da01ef843ff8c73aed25d999c42a223fc6f440c998`.
+- pnpm integrity: `sha512-U1dlPux+h5AnLveUt7+pLmBgNBxDQXQhtXqS5102UP5a6vPJ7GALBsADMK/EwC7pqZb2VzuFeYuAIzRn4dZRzA==`.
 
-This is the modified source-mode editor, not an unmodified upstream package. It adds exact `getFileText()` and `setFileText(text)` methods: no appended newline, NBSP conversion, or remote-load input callback. Source-mode loads reset editor undo. Other editor modes reject these exact-file APIs. Kinship's whole-file adapter receives only a `TextFile`, ordinal, and DOM lifecycle; the fork has no graph, workspace, version, transaction, or host-command dependency. CRDT is a separate CodeMirror/Yjs adapter, never a partial mode of this Vditor adapter.
+This is the modified source-mode editor, not an unmodified upstream package. It adds exact `getFileText()` and `setFileText(text)` methods: no appended newline, NBSP conversion, or remote-load input callback. Source-mode loads reset editor undo. Other editor modes reject these exact-file APIs. Kinship's whole-file adapter receives only a `TextFile`, ordinal, and DOM lifecycle; the fork has no graph, workspace, version, transaction, or host-command dependency. CRDT is a separate CodeMirror/Yjs adapter, never a partial mode of this Vditor adapter. Version `4.0.1-kinship.4` adds source task completion with a dedicated button and Ctrl/Meta+Shift+J; fenced-code examples are excluded by the bundled public CaliburRouter npm implementation. All 35 editor suites (166 tests), TypeScript and the production build pass.
 
 The source checkout lives beside Kinship at `../vditor`, with its own Git history and remote. Do not copy the source checkout under Kinship, or collect upstream tests in Kinship's test runner. Build and pack from the reviewed source SHA with pnpm, then update both hashes and the lockfile deliberately. A frozen install with a fresh store verifies the local archive bytes. Follow the source repository's `KINSHIP.md` for the build procedure.
 

@@ -58,7 +58,7 @@ export const kramdownAdapter: WholeFileAdapter = {
         cdn: new URL("vditor", document.baseURI).href,
         cache: { enable: false }, counter: { enable: false },
         // 行命令和选区属于 Vditor 内部；适配器只配置可见工具，不向主体提供命令接口。
-        toolbar: ["headings", "undo", "redo", "bold", "italic", "list", "ordered-list", "check", "outdent", "indent", "quote", "line", "link", "code", "table"],
+        toolbar: ["headings", "undo", "redo", "bold", "italic", "list", "ordered-list", "check", "task-toggle", "outdent", "indent", "quote", "line", "link", "code", "table"],
         // 显隐及焦点属于编辑器自身，正文主体不用识别工具栏DOM或编辑器内部状态。
         toolbarConfig: { revealOnFocus: true },
         preview: { mode: "both", actions: [], hljs: { enable: false } },
